@@ -46,6 +46,7 @@ export interface PadListItem {
   updated_at: string;
   file_count: number;
   size_bytes: number;
+  preview_text?: string | null;
 }
 
 export interface Collaborator {

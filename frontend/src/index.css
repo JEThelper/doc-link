@@ -912,9 +912,51 @@ a.file-chip-name:hover {
 }
 
 /* ---------- dashboard (Google Keep-style card grid) ---------- */
-.dash {
-  max-width: 1100px;
-  margin: 0 auto;
+.dash-shell {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  min-height: 100vh;
+  background: var(--color-bg);
+}
+.dash-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border-right: 1px solid var(--color-border-subtle);
+  background: var(--color-surface);
+}
+.dash-sidebar .brand-mark {
+  margin-bottom: var(--space-1);
+}
+.dash-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.dash-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-muted);
+  padding: 10px 12px;
+  border-radius: var(--radius-pill);
+  text-align: left;
+  cursor: pointer;
+}
+.dash-nav-item.is-active {
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  color: var(--color-accent);
+}
+.dash-sidebar-footer {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.dash-main {
   padding: var(--space-3) max(var(--space-3), env(safe-area-inset-right))
     max(var(--space-3), env(safe-area-inset-bottom)) max(var(--space-3), env(safe-area-inset-left));
   line-height: var(--leading-scan);
@@ -922,37 +964,31 @@ a.file-chip-name:hover {
 .dash-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: var(--space-2);
   flex-wrap: wrap;
   margin-bottom: var(--space-3);
-}
-.dash-header-left {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-.dash-title {
-  font-family: var(--font-serif);
-  font-size: var(--text-xl);
-  font-weight: 600;
-  margin: 0;
 }
 .dash-header-right {
   display: flex;
   align-items: center;
   gap: var(--space-2);
   flex-wrap: wrap;
+  flex: 1 1 480px;
+  justify-content: flex-end;
+}
+.dash-header-right--wide {
+  justify-content: flex-end;
 }
 .dash-search {
-  padding: 9px 12px;
+  padding: 10px 14px;
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-pill);
   background: var(--color-surface-raised);
   color: var(--color-text-primary);
   font: inherit;
   font-size: var(--text-md);
-  min-width: 200px;
+  min-width: min(560px, 100%);
   box-shadow: var(--shadow-sm);
 }
 .dash-search:focus {
@@ -1070,6 +1106,24 @@ a.file-chip-name:hover {
 
 /* masonry-ish grid via CSS multi-column: cards keep natural height, reflow on
    resize, collapse to one column on mobile. */
+.dash-sections {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.dash-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.dash-section-title {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: var(--text-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--color-text-muted);
+}
 .dash-grid {
   column-width: 250px;
   column-gap: var(--space-2);
@@ -1091,11 +1145,9 @@ a.file-chip-name:hover {
 .dash-card:focus-within {
   box-shadow: var(--shadow-pop);
 }
-/* decorative per-card accent stripe (muted presence hue, low opacity) */
 .dash-card-accent {
   height: 4px;
-  background: var(--card-accent, var(--color-border-subtle));
-  opacity: 0.55;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--color-accent) 20%, transparent), color-mix(in srgb, var(--color-accent) 8%, transparent));
 }
 .dash-card-body {
   padding: var(--space-2);
@@ -1104,10 +1156,19 @@ a.file-chip-name:hover {
   gap: var(--space-1);
 }
 .dash-card-name-link {
+  display: block;
   text-decoration: none;
   color: var(--color-text-primary);
+  background: transparent;
+  border: 0;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
 }
-.dash-card-name-link:hover .dash-name { text-decoration: underline; }
+.dash-card-name-link:hover .dash-name,
+.dash-card-name-link:focus-visible .dash-name {
+  text-decoration: underline;
+}
 .dash-name {
   font-weight: 600;
   font-size: var(--text-md);
@@ -1137,6 +1198,7 @@ a.file-chip-name:hover {
 .dash-card-meta {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: var(--space-1);
   flex-wrap: wrap;
   font-size: var(--text-xs);
@@ -1144,7 +1206,17 @@ a.file-chip-name:hover {
   margin-top: 2px;
 }
 .dash-card-time { white-space: nowrap; }
-.dash-card-meta .dot { opacity: 0.5; }
+.dash-card-indicators {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.dash-preview {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  line-height: 1.45;
+}
 
 /* visibility inline control */
 .dash-vis {
@@ -1269,6 +1341,57 @@ a.file-chip-name:hover {
 .dash-card:hover .dash-actions,
 .dash-card:focus-within .dash-actions {
   opacity: 1;
+}
+.dash-overlay-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 20, 20, 0.55);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-3);
+  z-index: 200;
+}
+.dash-overlay {
+  width: min(92vw, 1100px);
+  height: min(86vh, 900px);
+  display: flex;
+  flex-direction: column;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-pop);
+  overflow: hidden;
+}
+.dash-overlay-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+.dash-overlay-title {
+  font-family: var(--font-serif);
+  font-size: var(--text-lg);
+}
+.dash-overlay-subtitle {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+.dash-overlay-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.dash-overlay-body {
+  flex: 1;
+  overflow: auto;
+}
+.pad--overlay {
+  min-height: 100%;
 }
 .dash-action {
   border: none;
@@ -1397,10 +1520,22 @@ a.file-chip-name:hover {
 }
 
 /* ---------- dashboard at phone widths ---------- */
+@media (max-width: 900px) {
+  .dash-shell {
+    grid-template-columns: 1fr;
+  }
+  .dash-sidebar {
+    border-right: 0;
+    border-bottom: 1px solid var(--color-border-subtle);
+  }
+}
+
 @media (max-width: 640px) {
-  .dash { padding: var(--space-2); }
+  .dash-main { padding: var(--space-2); }
   .dash-header-right { width: 100%; }
   .dash-search { flex: 1 1 auto; min-width: 0; }
+  .dash-overlay { width: 100%; height: 100%; border-radius: 0; }
+  .dash-overlay-header { flex-direction: column; align-items: flex-start; }
 }
 
 /* ---------- touch targets (any touch device, regardless of width) ---------- */

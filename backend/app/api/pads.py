@@ -1,3 +1,4 @@
+import re
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
@@ -68,6 +69,21 @@ def _require_owner(pad: Pad, user: User) -> None:
         )
 
 
+def _preview_text(content: str | None, limit: int = 140) -> str | None:
+    if not content:
+        return None
+    text = re.sub(r"```[\s\S]*?```", " ", content)
+    text = re.sub(r"[*_`>#-]+", " ", text)
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
+    text = " ".join(line.strip() for line in text.splitlines() if line.strip())
+    text = re.sub(r"\s+", " ", text).strip()
+    if not text:
+        return None
+    if len(text) <= limit:
+        return text
+    return text[: limit - 1].rstrip() + "…"
+
+
 @router.get("", response_model=list[PadListItem])
 async def list_my_pads(
     archived: bool = False,
@@ -93,6 +109,7 @@ async def list_my_pads(
                 updated_at=pad.updated_at,
                 file_count=r["file_count"],
                 size_bytes=r["size_bytes"],
+                preview_text=_preview_text(pad.content),
             )
         )
     return out

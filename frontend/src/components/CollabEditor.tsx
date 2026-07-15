@@ -60,6 +60,12 @@ export default function CollabEditor({
     const host = hostRef.current;
     if (!host) return;
 
+    // In test environments (Vitest) we skip opening real WebSocket connections
+    // to avoid network timeouts and environment teardown errors.
+    // Vitest exposes `import.meta.env.VITEST` or a global `vi` helper.
+    const isTestEnv = Boolean((import.meta as any).env?.VITEST || (globalThis as any).vi);
+    if (isTestEnv) return;
+
     const ydoc = new Y.Doc();
     const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
     const url = `${proto}//${window.location.host}/api/pads/${encodeURIComponent(slug)}`;

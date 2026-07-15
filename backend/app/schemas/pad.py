@@ -91,7 +91,7 @@ class PadOut(BaseModel):
 
 
 class PadListItem(BaseModel):
-    """Row in the dashboard pad list (no content body — kept light)."""
+    """Row in the dashboard pad list (no full content body — kept light)."""
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -106,6 +106,7 @@ class PadListItem(BaseModel):
     updated_at: datetime
     file_count: int = 0
     size_bytes: int = 0
+    preview_text: str | None = None
 
 
 class CollaboratorIn(BaseModel):

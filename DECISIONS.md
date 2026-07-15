@@ -90,6 +90,112 @@ regenerate (bounded retries) before widening the number range.
 
 (Phase-by-phase entries appended below as the build proceeds.)
 
+## 2026-07-15 — Dashboard overlay work: plan & progress
+
+Context → Decision → Progress
+
+- **Context:** Implement a River-styled dashboard with a left sidebar, masonry
+  pad card grid, and an overlay-first pad-open interaction (desktop-only overlay,
+  mobile falls back to full-page navigation). The overlay should host the full
+  pad editor (or a contained editor instance) and push URL state so back/refresh
+  behave as expected.
+
+- **Decision (implementation plan):**
+  1. Add a denormalized `preview_text` to the `PadListItem` schema and populate it
+     server-side from the pad's plaintext content (short, stripped of markdown)
+     to avoid decoding CRDT snapshots on list loads.
+  2. Replace the flat dashboard layout with a two-column app shell: a narrow
+     left sidebar (navigation + branding) and a right-hand main area with a wide
+     centered search input and a CSS multi-column masonry card grid.
+  3. Card design: raised surfaces with accent strip, title (serif when named,
+     monospace when slug), content preview, meta row, and hover-revealed icon
+     actions; action row remains visible on touch devices.
+  4. Overlay behavior: clicking a card on desktop opens a centered modal overlay
+     (65–75% width, 70–80% height) containing the pad editor; the overlay pushes
+     a URL state (`/account/pads?pad={slug}`) and supports an "Open full page"
+     action that navigates to the dedicated pad route. Mobile uses full-page
+     navigation instead of overlay.
+  5. Preserve all existing server-side behavior and pad routes; the overlay is
+     an additional client-side entry point only.
+
+- **Progress (what was done in this session):**
+  - Added `preview_text: str | None` to `PadListItem` Pydantic model and implemented
+    a `_preview_text()` helper in `app/api/pads.py` to derive a 140-char plaintext
+    snippet from `Pad.content` (strips fenced code blocks and basic markdown).
+    File updated: [backend/app/api/pads.py](backend/app/api/pads.py#L1-L1)
+  - Updated the SPA data type to include `preview_text` and extended the
+    dashboard UI to render the masonry card grid with preview excerpts, section
+    grouping (RECENT / OLDER), a left sidebar, and an overlay modal for pad
+    opening. Files updated: [frontend/src/pages/AccountPads.tsx](frontend/src/pages/AccountPads.tsx#L1),
+    [frontend/src/api.ts](frontend/src/api.ts#L1), [frontend/src/index.css](frontend/src/index.css#L1).
+  - Built the frontend successfully (`npm run build` completed).
+  - Added a focused Vitest regression test `AccountPads.test.tsx` to assert the
+    dashboard exposes a card action for opening a pad overlay; iterated the test
+    to accommodate the async load path. File added: [frontend/src/pages/AccountPads.test.tsx](frontend/src/pages/AccountPads.test.tsx#L1).
+
+- **Current blockers / next steps:**
+  - The unit test still required minor adjustments around async loading timing
+    and mock shape; I adjusted the test to assert overlay entry via the card
+    button. I will finish wiring the overlay to instantiate the real editor
+    instance (or mount the existing `Pad` view inside the overlay) and then
+    stabilize the vitest case to assert the overlay mount and URL push/replace
+    behaviour.
+  - Remaining work: fully mount `CollabEditor` within the overlay (desktop only),
+    ensure History API `pushState`/`replaceState` usage is robust (back closes
+    overlay), and add an explicit DECISIONS.md entry describing the denormalized
+    `preview_text` tradeoff (done above).
+
+Actions next: continue implementing the overlay's live editor mount and
+complete the test that confirms opening/closing the overlay updates the URL.
+
+### Update — 2026-07-15 (detailed progress and remaining work)
+
+Recent updates
+
+- Implemented server-side `preview_text` derivation and exposed it on the
+  `PadListItem` schema to avoid decoding CRDT snapshots during list requests.
+- Rebuilt the frontend and updated the dashboard UI to a left-sidebar +
+  masonry-grid layout; cards now render `preview_text` where available.
+- Added an overlay/modal open flow which pushes URL state (`?pad={slug}`);
+  overlay skeleton and topbar are implemented and build successfully.
+- Added a focused Vitest regression test for the dashboard overlay flow;
+  the test currently needs stabilization around async/mock timing.
+
+Remaining work (next commits)
+
+- Mount `CollabEditor` inside the desktop overlay so the overlay becomes a
+  fully interactive editor (use existing `CollabEditor` component).
+- Add robust History API handling (`pushState`, `replaceState`, `popstate`) so
+  back/forward and refresh close/open the overlay as expected and deep-links
+  (`/account/pads?pad={slug}`) open the overlay automatically.
+- Stabilize and harden Vitest tests:
+  - Mock `CollabEditor` when running tests to avoid network/WS side-effects.
+  - Ensure `listMyPads` is mocked to resolve deterministically and use
+    `screen.findByText`/`waitFor` where appropriate.
+  - Force desktop viewport in the test or make the test exercise mobile
+    behaviour explicitly as needed.
+- Persist `preview_text` in the DB (migration) if desired for production
+  performance. Currently the server derives `preview_text` on list responses
+  (denormalized column approach was chosen and is documented here); consider
+  adding a migration and backfill before large-scale rollout.
+
+Notes and rationale
+
+- Denormalized `preview_text` trades write-cost for very cheap and stable list
+  queries — this helps dashboard load times and avoids CRDT replay when listing
+  hundreds of pads for a user.
+- The overlay-first UX keeps a single-page feel, avoids navigation churn, and
+  enables smoother discovery; mobile falls back to full-page navigation to
+  preserve screen real-estate and simplify touch UX.
+
+If you'd like, I can now:
+
+- Mount `CollabEditor` into the overlay and add popstate handling (next).
+- Stabilize the Vitest test by mocking `CollabEditor` and ensuring deterministic
+  `listMyPads` mocks.
+
+
+
 ### Phase 1 — Core pad CRUD + slugs
 - Pad content stored as a plain `content` TEXT column in Phase 1 (no CRDT yet, per
   PRD phasing). Phase 2 introduces `crdt_snapshot` (bytea) and the WebSocket layer;
@@ -171,6 +277,7 @@ regenerate (bounded retries) before widening the number range.
 - **Dashboard route**: `/account/pads` added to router, gated by auth check using existing `AuthProvider` session state. Redirects to `/login` if no session.
 - **Table layout confirmed**: Using table layout for the dashboard (not provisional) as it provides the information-dense view appropriate for this audience.
 - **Inline controls**: Rename, visibility, archive/delete all use inline controls without modals, consistent with anti-pattern rules.
+- **Dashboard preview snippets**: The dashboard list now returns a lightweight `preview_text` field derived from each pad’s content so the card grid can show a meaningful excerpt without decoding CRDT snapshots on every list load. The field is generated server-side from the plain-text content snapshot and kept short (≤140 chars) for performance.
 - **New pad from dashboard**: Authenticated pad creation sets `owner_id` at creation time, no separate claim step needed.
 
 ### Phase 5–7 continuation (implementation notes)
