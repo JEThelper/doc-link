@@ -1,14 +1,14 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
-import ThemeToggle from "../components/ThemeToggle";
+
 import { createPad } from "../api";
 import { useAuth } from "../auth";
 import { useTheme } from "../useTheme";
 
 export default function Landing() {
   const navigate = useNavigate();
-  const { theme, toggle } = useTheme();
+  useTheme("light");
   const { user, ready } = useAuth();
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -42,7 +42,7 @@ export default function Landing() {
           ) : (
             <Link to="/login">Sign in</Link>
           )}
-          <ThemeToggle theme={theme} onToggle={toggle} />
+
         </nav>
       </header>
 

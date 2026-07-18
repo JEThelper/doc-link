@@ -13,12 +13,14 @@ function storedTheme(): Theme | null {
 }
 
 /** Theme with persistence. Until the user overrides, follow prefers-color-scheme. */
-export function useTheme() {
+export function useTheme(forcedTheme?: Theme) {
   const [theme, setTheme] = useState<Theme>(() => storedTheme() ?? systemTheme());
 
+  const effectiveTheme = forcedTheme ?? theme;
+
   useEffect(() => {
-    document.documentElement.setAttribute("data-theme", theme);
-  }, [theme]);
+    document.documentElement.setAttribute("data-theme", effectiveTheme);
+  }, [effectiveTheme]);
 
   // Track system changes only while the user hasn't set an explicit preference.
   useEffect(() => {

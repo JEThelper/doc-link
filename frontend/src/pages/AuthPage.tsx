@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
-import ThemeToggle from "../components/ThemeToggle";
+
 import { useAuth } from "../auth";
 import { useTheme } from "../useTheme";
 
@@ -39,7 +39,7 @@ function validateUsername(raw: string): string | null {
 
 export default function AuthPage({ mode }: Props) {
   const navigate = useNavigate();
-  const { theme, toggle } = useTheme();
+  useTheme("light");
   const { user, login, signup } = useAuth();
 
   const [email, setEmail] = useState("");
@@ -93,11 +93,8 @@ export default function AuthPage({ mode }: Props) {
   }
 
   return (
-    <main className="auth-page">
-      <div className="landing-corner">
-        <ThemeToggle theme={theme} onToggle={toggle} />
-      </div>
 
+    <main className="auth-page">
       <form className="auth-card" onSubmit={submit}>
         <h1 className="auth-title">{isSignup ? "Create account" : "Sign in"}</h1>
 
