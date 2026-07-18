@@ -93,7 +93,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       email: string,
       password: string,
       username: string,
-      displayName?: string
+
     ) => {
       const resp = await fetch("/api/auth/signup", {
         method: "POST",
