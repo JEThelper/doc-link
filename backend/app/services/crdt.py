@@ -52,12 +52,15 @@ class PadWebsocketServer(WebsocketServer):
         return self.rooms[name]
 
     async def delete_room(self, *, name: str | None = None, room: YRoom | None = None) -> None:
-        if name is None and room is not None:
-            name = self.get_room_name(room)
-        if name is not None:
-            await self._flush(name)
-            self._subscriptions.pop(name, None)
-        await super().delete_room(name=name, room=room)
+        resolved_name = name or (self.get_room_name(room) if room else None)
+        if resolved_name is not None:
+            await self._flush(resolved_name)
+            self._subscriptions.pop(resolved_name, None)
+        
+        if room is not None:
+            await super().delete_room(room=room)
+        else:
+            await super().delete_room(name=name)
 
     async def _seed_doc(self, slug: str) -> Doc:
         doc = Doc()

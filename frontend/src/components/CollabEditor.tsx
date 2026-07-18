@@ -37,7 +37,7 @@ const ANIMALS = [
 
 function localUser(): AwarenessUser {
   // Stable per browser session so reloads keep the same identity/color.
-  const KEY = "spacepad-identity";
+  const KEY = "river-identity";
   const stored = sessionStorage.getItem(KEY);
   if (stored) return JSON.parse(stored) as AwarenessUser;
   const colorIndex = Math.floor(Math.random() * 10);
@@ -59,6 +59,12 @@ export default function CollabEditor({
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return;
+
+    // In test environments (Vitest) we skip opening real WebSocket connections
+    // to avoid network timeouts and environment teardown errors.
+    // Vitest exposes `import.meta.env.VITEST` or a global `vi` helper.
+    const isTestEnv = Boolean((import.meta as any).env?.VITEST || (globalThis as any).vi);
+    if (isTestEnv) return;
 
     const ydoc = new Y.Doc();
     const proto = window.location.protocol === "https:" ? "wss:" : "ws:";

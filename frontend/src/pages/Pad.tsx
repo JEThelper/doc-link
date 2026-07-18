@@ -7,18 +7,28 @@ import CollabEditor from "../components/CollabEditor";
 import FileTray from "../components/FileTray";
 import { ConnectionState } from "../components/ConnectionIndicator";
 import { PresencePeer } from "../components/PresenceStack";
-import { Pad as PadModel, PinFormat, createPad, getPad, unlockPad } from "../api";
+import {
+  Pad as PadModel,
+  PinFormat,
+  createPad,
+  generateClaimToken,
+  getPad,
+  unlockPad,
+} from "../api";
 import { useAuth } from "../auth";
 import { useTheme } from "../useTheme";
 
 type Status = "loading" | "missing" | "invalid" | "ready" | "error" | "forbidden";
 
 export default function Pad() {
-  const { slug = "" } = useParams();
+  const { padname, slug = "" } = useParams();
   const location = useLocation();
   const seed = (location.state as { seed?: string } | null)?.seed ?? "";
   const { theme, toggle } = useTheme();
   const { user, authedFetch } = useAuth();
+
+  // Determine the pad identifier: if username/padname exist, use padname; otherwise use slug
+  const padIdentifier = padname || slug;
 
   const [status, setStatus] = useState<Status>("loading");
   const [errorMsg, setErrorMsg] = useState("");
@@ -26,16 +36,26 @@ export default function Pad() {
   const [peers, setPeers] = useState<PresencePeer[]>([]);
   const [connection, setConnection] = useState<ConnectionState>("connected");
   const [ownerId, setOwnerId] = useState<string | null>(null);
+  const [claimToken, setClaimToken] = useState<string | null>(null);
+  const [claimErr, setClaimErr] = useState("");
 
   useEffect(() => {
     let cancelled = false;
     setStatus("loading");
-    getPad(slug, authedFetch)
+    getPad(padIdentifier, authedFetch)
       .then((res) => {
         if (cancelled) return;
         if (res.kind === "found") {
           setPad(res.pad);
           setOwnerId(res.pad.owner_id);
+          // Canonicalize the address bar client-side (AUDIT B4 — no HTTP 301):
+          // an old/slug URL stays resolvable but the bar shows the canonical one.
+          if (
+            res.pad.canonical_url &&
+            res.pad.canonical_url !== window.location.pathname
+          ) {
+            window.history.replaceState(null, "", res.pad.canonical_url);
+          }
           setStatus("ready");
         } else if (res.kind === "forbidden") {
           setStatus("forbidden");
@@ -51,23 +71,24 @@ export default function Pad() {
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slug, authedFetch]);
+  }, [padIdentifier, authedFetch]);
 
+  // Claiming happens from the dashboard (spec §3). In-pad we only mint a
+  // time-bound claim token for the user to submit there.
   async function claim() {
-    const resp = await authedFetch(`/api/pads/${encodeURIComponent(slug)}/claim`, {
-      method: "POST",
-    });
-    if (resp.ok) {
-      const claimed = await resp.json();
-      setOwnerId(claimed.owner_id);
+    setClaimErr("");
+    try {
+      const { token } = await generateClaimToken(padIdentifier, authedFetch);
+      setClaimToken(token);
+    } catch (e) {
+      setClaimErr((e as Error).message);
     }
   }
 
   async function createHere() {
     try {
-      await createPad(slug, authedFetch);
-      const res = await getPad(slug, authedFetch);
+      await createPad(padIdentifier, authedFetch);
+      const res = await getPad(padIdentifier, authedFetch);
       if (res.kind === "found") {
         setPad(res.pad);
         setOwnerId(res.pad.owner_id);
@@ -84,7 +105,7 @@ export default function Pad() {
   if (status === "invalid")
     return (
       <div className="pad-state">
-        <p>"{slug}" isn't a valid pad name.</p>
+        <p>"{padIdentifier}" isn't a valid pad name.</p>
         <Link className="text-link" to="/">
           Go home
         </Link>
@@ -120,7 +141,7 @@ export default function Pad() {
         <p>This pad doesn't exist yet — create it?</p>
         <div className="pad-state-actions">
           <button className="btn btn-primary" onClick={createHere}>
-            Create /{slug}
+            Create /{padIdentifier}
           </button>
           <Link className="text-link" to="/">
             Cancel
@@ -134,7 +155,7 @@ export default function Pad() {
   if (pad?.locked)
     return (
       <LockedPad
-        slug={slug}
+        slug={padIdentifier}
         pinFormat={pad.pin_format}
         onUnlocked={(unlocked) => {
           setPad(unlocked);
@@ -148,7 +169,7 @@ export default function Pad() {
   return (
     <div className="pad">
       <TopBar
-        slug={slug}
+        slug={padIdentifier}
         peers={peers}
         connection={canEdit ? connection : "noaccess"}
         theme={theme}
@@ -156,12 +177,46 @@ export default function Pad() {
         canClaim={!!user && ownerId === null}
         onClaim={claim}
       />
+      {claimErr && (
+        <div className="claim-banner" role="alert">
+          <span className="error">{claimErr}</span>
+        </div>
+      )}
+      {claimToken && (
+        <div className="claim-banner" role="status">
+          <p className="claim-banner-title">Claim token generated</p>
+          <p className="claim-banner-hint">
+            Paste this pad's URL and the token below into{" "}
+            <Link to="/account/pads" className="text-link">
+              your dashboard → “Claim a pad”
+            </Link>
+            . It expires in a few minutes.
+          </p>
+          <code className="claim-banner-token">{claimToken}</code>
+          <div className="claim-banner-actions">
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => navigator.clipboard?.writeText(claimToken).catch(() => {})}
+            >
+              Copy token
+            </button>
+            <button
+              type="button"
+              className="text-link"
+              onClick={() => setClaimToken(null)}
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
       <div className="pad-canvas-scroll">
         <div className="pad-layout">
           <div className="pad-canvas">
             {canEdit ? (
               <CollabEditor
-                slug={slug}
+                slug={padIdentifier}
                 seed={seed}
                 onPeersChange={setPeers}
                 onConnectionChange={setConnection}
@@ -173,7 +228,7 @@ export default function Pad() {
             )}
           </div>
           <aside className="pad-file-side">
-            <FileTray slug={slug} />
+            <FileTray slug={padIdentifier} />
           </aside>
         </div>
       </div>

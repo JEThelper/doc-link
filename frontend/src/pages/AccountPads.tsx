@@ -1,14 +1,19 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
+import BrandWordmark from "../components/BrandWordmark";
+import TopBar from "../components/TopBar";
+import CollabEditor from "../components/CollabEditor";
 import ThemeToggle from "../components/ThemeToggle";
 import {
   PadListItem,
-  PinFormat,
+  Redirect,
   Visibility,
+  claimPad,
   createPad,
-  deletePad,
+  killRedirect,
   listMyPads,
+  listRedirects,
   patchPad,
 } from "../api";
 import { useAuth } from "../auth";
@@ -20,7 +25,21 @@ const VISIBILITY: Record<Visibility, { glyph: string; label: string }> = {
   public_view: { glyph: "👁", label: "Anyone can view" },
   private: { glyph: "🔒", label: "Private" },
 };
-const VISIBILITY_ORDER: Visibility[] = ["public_edit", "public_view", "private"];
+
+
+/** Extract the pad's address segment (slug or name) from a pasted URL/path. */
+function parseSlug(input: string): string {
+  const trimmed = input.trim();
+  if (!trimmed) return "";
+  let path = trimmed;
+  try {
+    path = new URL(trimmed).pathname;
+  } catch {
+    // not a full URL — treat as a path or bare slug
+  }
+  const parts = path.split("/").filter(Boolean);
+  return parts.length ? parts[parts.length - 1] : "";
+}
 
 export default function AccountPads() {
   const { user, ready, authedFetch, logout } = useAuth();
@@ -34,9 +53,27 @@ export default function AccountPads() {
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
 
+  // Claim-a-pad form
+  const [claimUrl, setClaimUrl] = useState("");
+  const [claimTokenInput, setClaimTokenInput] = useState("");
+  const [claimPin, setClaimPin] = useState("");
+  const [claimMsg, setClaimMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [claiming, setClaiming] = useState(false);
+  const [activePadSlug, setActivePadSlug] = useState<string | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Inline rename + "old links" per card
+  const [renamingSlug, setRenamingSlug] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const [linksSlug, setLinksSlug] = useState<string | null>(null);
+  const [links, setLinks] = useState<Redirect[]>([]);
+
   // Redirect to login once the session has settled and there's no user.
   useEffect(() => {
-    if (ready && !user) navigate("/login", { replace: true });
+    if (ready && !user) {
+      const next = encodeURIComponent("/account/pads");
+      navigate(`/login?next=${next}`, { replace: true });
+    }
   }, [ready, user, navigate]);
 
   // ~150ms debounce on the search input (dashboard spec §2).
@@ -45,14 +82,26 @@ export default function AccountPads() {
     return () => clearTimeout(id);
   }, [query]);
 
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 768);
+    onResize();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
   const load = useCallback(async () => {
+    console.log("load start");
     setLoading(true);
     setError(null);
     try {
-      setPads(await listMyPads(authedFetch, { archived, q: debouncedQuery }));
+      const result = await listMyPads(authedFetch, { archived, q: debouncedQuery });
+      console.log("load result", result);
+      setPads(result);
     } catch (e) {
+      console.log("load error", e);
       setError((e as Error).message);
     } finally {
+      console.log("load finish");
       setLoading(false);
     }
   }, [authedFetch, archived, debouncedQuery]);
@@ -60,6 +109,21 @@ export default function AccountPads() {
   useEffect(() => {
     if (user) load();
   }, [user, load]);
+
+  const groupedPads = useMemo(() => {
+    const now = Date.now();
+    const recent = [] as PadListItem[];
+    const older = [] as PadListItem[];
+    for (const pad of pads) {
+      const updatedAt = new Date(pad.updated_at).getTime();
+      if (!Number.isNaN(updatedAt) && now - updatedAt < 7 * 24 * 60 * 60 * 1000) {
+        recent.push(pad);
+      } else {
+        older.push(pad);
+      }
+    }
+    return { recent, older };
+  }, [pads]);
 
   async function newPad() {
     try {
@@ -80,25 +144,6 @@ export default function AccountPads() {
     );
   }
 
-  async function rename(slug: string, name: string) {
-    const trimmed = name.trim();
-    applyLocal(slug, { name: trimmed || null });
-    try {
-      await patchPad(authedFetch, slug, { name: trimmed || null });
-    } catch (e) {
-      setError((e as Error).message);
-      load();
-    }
-  }
-
-  async function changeVisibility(slug: string, visibility: Visibility) {
-    try {
-      await patchPad(authedFetch, slug, { visibility });
-      applyLocal(slug, { visibility });
-    } catch (e) {
-      setError((e as Error).message); // e.g. "Verify your email…" for private
-    }
-  }
 
   async function setArchivedFlag(slug: string, value: boolean) {
     applyLocal(slug, { is_archived: value });
@@ -110,64 +155,127 @@ export default function AccountPads() {
     }
   }
 
-  async function remove(slug: string) {
-    setPads((prev) => prev.filter((p) => p.slug !== slug));
-    try {
-      await deletePad(authedFetch, slug);
-    } catch (e) {
-      setError((e as Error).message);
+  async function submitClaim(e: React.FormEvent) {
+    e.preventDefault();
+    setClaimMsg(null);
+    const slug = parseSlug(claimUrl);
+    if (!slug) {
+      setClaimMsg({ ok: false, text: "Enter the pad's URL." });
+      return;
+    }
+    setClaiming(true);
+    const res = await claimPad(
+      authedFetch,
+      slug,
+      claimTokenInput.trim(),
+      claimPin.trim() || undefined
+    );
+    setClaiming(false);
+    if (res.kind === "ok") {
+      setClaimMsg({ ok: true, text: `Claimed “${res.pad.name || res.pad.slug}”.` });
+      setClaimUrl("");
+      setClaimTokenInput("");
+      setClaimPin("");
       load();
+    } else {
+      setClaimMsg({ ok: false, text: res.message });
     }
   }
 
-  // PIN protection is orthogonal to visibility (mutually exclusive only with
-  // `private`, enforced server-side and by disabling the control in the UI).
-  async function setPin(slug: string, pin: string, format: PinFormat) {
+  async function commitRename(slug: string) {
+    const next = renameValue.trim().toLowerCase();
+    setRenamingSlug(null);
+    if (!next) return;
     try {
-      await patchPad(authedFetch, slug, {
-        pin_protected: true,
-        pin,
-        pin_format: format,
-      });
-      applyLocal(slug, { pin_protected: true });
+      const updated = await patchPad(authedFetch, slug, { name: next });
+      applyLocal(slug, { name: updated.name });
     } catch (e) {
       setError((e as Error).message);
     }
   }
 
-  async function clearPin(slug: string) {
-    applyLocal(slug, { pin_protected: false });
+  async function toggleLinks(slug: string) {
+    if (linksSlug === slug) {
+      setLinksSlug(null);
+      return;
+    }
+    setLinksSlug(slug);
     try {
-      await patchPad(authedFetch, slug, { pin_protected: false });
-    } catch (e) {
-      setError((e as Error).message);
-      load();
+      setLinks(await listRedirects(authedFetch, slug));
+    } catch {
+      setLinks([]);
     }
   }
 
-  if (!ready || (!user && !ready)) return <div className="pad-state" />;
+  async function removeLink(slug: string, id: string) {
+    try {
+      await killRedirect(authedFetch, slug, id);
+      setLinks((prev) => prev.filter((r) => r.id !== id));
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
+
+  if (!ready) return <div className="pad-state" />;
+  if (!user) return null;
+
+  console.log("render", { loading, pads: pads.length, recent: groupedPads.recent.length, older: groupedPads.older.length });
+
+  const openPad = (pad: PadListItem) => {
+    if (window.innerWidth < 768) {
+      navigate(`/${user.username}/${pad.name || pad.slug}`);
+      return;
+    }
+    setActivePadSlug(pad.slug);
+    const nextPath = `/account/pads?pad=${encodeURIComponent(pad.slug)}`;
+    window.history.pushState({}, "", nextPath);
+  };
+
+  const closeOverlay = () => {
+    setActivePadSlug(null);
+    window.history.replaceState({}, "", "/account/pads");
+  };
+
+  // Deep-link: open overlay if ?pad=slug present on initial load (desktop only)
+  useEffect(() => {
+    if (isMobile) return;
+    const params = new URLSearchParams(window.location.search);
+    const pad = params.get("pad");
+    if (pad) setActivePadSlug(pad);
+  }, [isMobile]);
+
+  // Back-button handling: close the overlay when the URL no longer contains ?pad=
+  useEffect(() => {
+    const onPop = () => {
+      const params = new URLSearchParams(window.location.search);
+      const pad = params.get("pad");
+      if (!pad) setActivePadSlug(null);
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+
+  const openPadFullPage = (pad: PadListItem) => {
+    navigate(`/${user.username}/${pad.name || pad.slug}`);
+  };
 
   return (
-    <main className="dash">
-      <header className="dash-header">
-        <div className="dash-header-left">
-          <Link to="/" className="brand-mark" aria-label="SpacePad home">
-            ✦
-          </Link>
-          <h1 className="dash-title">My Pads</h1>
-        </div>
-        <div className="dash-header-right">
-          <input
-            type="search"
-            className="dash-search"
-            placeholder="Search pads…"
-            aria-label="Search pads by name or slug"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
-          <button type="button" className="btn btn-primary" onClick={newPad}>
-            New Pad
+    <main className="dash-shell">
+      <aside className="dash-sidebar">
+        <Link to="/" className="brand-mark" aria-label="River home">
+          <BrandWordmark />
+        </Link>
+        <nav className="dash-nav" aria-label="Dashboard navigation">
+          <button type="button" className="dash-nav-item is-active">
+            <span aria-hidden>▣</span>
+            <span>Your pads</span>
           </button>
+          <button type="button" className="dash-nav-item">
+            <span aria-hidden>🗄</span>
+            <span>Archive</span>
+          </button>
+        </nav>
+        <div className="dash-sidebar-footer">
           <ThemeToggle theme={theme} onToggle={toggle} />
           {user && (
             <span className="topbar-user">
@@ -180,362 +288,489 @@ export default function AccountPads() {
             </span>
           )}
         </div>
-      </header>
+      </aside>
 
-      <div className="dash-toolbar">
-        <div className="dash-tabs" role="tablist" aria-label="Pad views">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={!archived}
-            className={`dash-tab ${!archived ? "is-active" : ""}`}
-            onClick={() => setArchived(false)}
-          >
-            Active
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={archived}
-            className={`dash-tab ${archived ? "is-active" : ""}`}
-            onClick={() => setArchived(true)}
-          >
-            Archived
+      <section className="dash-main">
+        <header className="dash-header">
+          <div className="dash-header-right dash-header-right--wide">
+            <input
+              type="search"
+              className="dash-search"
+              placeholder="Search pads…"
+              aria-label="Search pads by name or slug"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+            <button type="button" className="btn btn-primary" onClick={newPad}>
+              New pad
+            </button>
+          </div>
+        </header>
+
+        <div className="dash-toolbar">
+          <div className="dash-tabs" role="tablist" aria-label="Pad views">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={!archived}
+              className={`dash-tab ${!archived ? "is-active" : ""}`}
+              onClick={() => setArchived(false)}
+            >
+              Active
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={archived}
+              className={`dash-tab ${archived ? "is-active" : ""}`}
+              onClick={() => setArchived(true)}
+            >
+              Archived
+            </button>
+          </div>
+        </div>
+
+        <form className="dash-claim" onSubmit={submitClaim}>
+        <div className="dash-claim-fields">
+          <label className="dash-claim-field">
+            <span>Claim a pad — its URL</span>
+            <input
+              type="text"
+              className="dash-claim-input"
+              placeholder="myriver.app/crisp-badger-68"
+              value={claimUrl}
+              onChange={(e) => setClaimUrl(e.target.value)}
+            />
+          </label>
+          <label className="dash-claim-field">
+            <span>Claim token</span>
+            <input
+              type="text"
+              className="dash-claim-input"
+              placeholder="token from the pad"
+              value={claimTokenInput}
+              onChange={(e) => setClaimTokenInput(e.target.value)}
+            />
+          </label>
+          <label className="dash-claim-field">
+            <span>PIN (if locked)</span>
+            <input
+              type="text"
+              className="dash-claim-input"
+              inputMode="text"
+              placeholder="optional"
+              value={claimPin}
+              onChange={(e) => setClaimPin(e.target.value)}
+            />
+          </label>
+          <button type="submit" className="btn btn-primary" disabled={claiming}>
+            {claiming ? "Claiming…" : "Claim"}
           </button>
         </div>
-      </div>
-
-      {error && (
-        <p className="error dash-error" role="alert">
-          {error}
-        </p>
-      )}
-
-      {loading ? (
-        <div className="dash-empty" aria-busy="true" />
-      ) : pads.length === 0 ? (
-        <div className="dash-empty">
-          {debouncedQuery ? (
-            <p>No pads match “{debouncedQuery}”.</p>
-          ) : archived ? (
-            <p>No archived pads.</p>
-          ) : (
-            <>
-              <p>You don’t have any pads yet.</p>
-              <button type="button" className="btn btn-primary" onClick={newPad}>
-                Create your first pad
-              </button>
-            </>
-          )}
-        </div>
-      ) : (
-        <table className="dash-table">
-          <thead>
-            <tr>
-              <th scope="col">Name</th>
-              <th scope="col">Last edited</th>
-              <th scope="col">Visibility</th>
-              <th scope="col" className="dash-col-size">
-                Size
-              </th>
-              <th scope="col">
-                <span className="visually-hidden">Actions</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {pads.map((pad) => (
-              <PadRow
-                key={pad.id}
-                pad={pad}
-                archived={archived}
-                onRename={rename}
-                onChangeVisibility={changeVisibility}
-                onSetPin={setPin}
-                onClearPin={clearPin}
-                onArchive={(value) => setArchivedFlag(pad.slug, value)}
-                onDelete={() => remove(pad.slug)}
-              />
-            ))}
-          </tbody>
-        </table>
-      )}
-    </main>
-  );
-}
-
-interface RowProps {
-  pad: PadListItem;
-  archived: boolean;
-  onRename: (slug: string, name: string) => void;
-  onChangeVisibility: (slug: string, v: Visibility) => void;
-  onSetPin: (slug: string, pin: string, format: PinFormat) => void;
-  onClearPin: (slug: string) => void;
-  onArchive: (value: boolean) => void;
-  onDelete: () => void;
-}
-
-function PadRow({
-  pad,
-  archived,
-  onRename,
-  onChangeVisibility,
-  onSetPin,
-  onClearPin,
-  onArchive,
-  onDelete,
-}: RowProps) {
-  const [renaming, setRenaming] = useState(false);
-  const [draft, setDraft] = useState(pad.name ?? "");
-  const [visOpen, setVisOpen] = useState(false);
-  const [confirmingDelete, setConfirmingDelete] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [pinEditing, setPinEditing] = useState(false);
-  const [pinDraft, setPinDraft] = useState("");
-  const [pinFormat, setPinFormat] = useState<PinFormat>("numeric");
-  const renameRef = useRef<HTMLInputElement>(null);
-
-  const isPrivate = pad.visibility === "private";
-
-  function commitPin() {
-    if (!pinDraft) return;
-    onSetPin(pad.slug, pinDraft, pinFormat);
-    setPinDraft("");
-    setPinEditing(false);
-  }
-
-  useEffect(() => {
-    if (renaming) renameRef.current?.focus();
-  }, [renaming]);
-
-  function commitRename() {
-    setRenaming(false);
-    if (draft !== (pad.name ?? "")) onRename(pad.slug, draft);
-  }
-
-  async function copyLink() {
-    const url = `${window.location.origin}/${pad.slug}`;
-    try {
-      await navigator.clipboard.writeText(url);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1400);
-    } catch {
-      /* clipboard blocked — non-fatal */
-    }
-  }
-
-  const vis = VISIBILITY[pad.visibility];
-  // Display rule (dashboard spec §2): show the custom name when set, otherwise
-  // the slug in mono. Never-renamed pads read as their slug.
-  const displayName = pad.name?.trim();
-
-  return (
-    <tr className="dash-row">
-      <td className="dash-cell-name">
-        {renaming ? (
-          <input
-            ref={renameRef}
-            className="dash-rename-input"
-            value={draft}
-            aria-label={`Rename ${pad.slug}`}
-            onChange={(e) => setDraft(e.target.value)}
-            onBlur={commitRename}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") commitRename();
-              if (e.key === "Escape") {
-                setDraft(pad.name ?? "");
-                setRenaming(false);
-              }
-            }}
-          />
-        ) : (
-          <Link to={`/${pad.slug}`} className="dash-name-link">
-            {displayName ? (
-              <span className="dash-name">{displayName}</span>
-            ) : (
-              <span className="dash-name dash-name--slug">{pad.slug}</span>
-            )}
-            {displayName && <span className="dash-name-slug">/{pad.slug}</span>}
-          </Link>
+        {claimMsg && (
+          <p
+            className={claimMsg.ok ? "dash-claim-ok" : "error"}
+            role={claimMsg.ok ? "status" : "alert"}
+          >
+            {claimMsg.text}
+          </p>
         )}
-      </td>
+      </form>
 
-      <td className="dash-cell-time" title={fullTimestamp(pad.updated_at)}>
-        {relativeTime(pad.updated_at)}
-      </td>
+        {error && (
+          <p className="error dash-error" role="alert">
+            {error}
+          </p>
+        )}
 
-      <td className="dash-cell-vis">
-        <div className="dash-vis">
-          <button
-            type="button"
-            className="dash-vis-trigger"
-            aria-haspopup="menu"
-            aria-expanded={visOpen}
-            aria-label={`Visibility: ${vis.label}. Change`}
-            onClick={() => setVisOpen((o) => !o)}
-          >
-            <span aria-hidden="true">{vis.glyph}</span>
-            <span className="dash-vis-label">{vis.label}</span>
-          </button>
-          {visOpen && (
-            <ul className="dash-vis-menu" role="menu">
-              {VISIBILITY_ORDER.map((v) => (
-                <li key={v} role="none">
-                  <button
-                    type="button"
-                    role="menuitemradio"
-                    aria-checked={pad.visibility === v}
-                    className="dash-vis-option"
-                    onClick={() => {
-                      setVisOpen(false);
-                      if (v !== pad.visibility) onChangeVisibility(pad.slug, v);
-                    }}
-                  >
-                    <span aria-hidden="true">{VISIBILITY[v].glyph}</span>
-                    {VISIBILITY[v].label}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
+        {loading ? (
+        <div className="dash-empty" aria-busy="true" />
+        ) : pads.length === 0 ? (
+          <div className="dash-empty">
+            {debouncedQuery ? (
+              <p>No pads match “{debouncedQuery}”.</p>
+            ) : archived ? (
+              <p>No archived pads.</p>
+            ) : (
+              <>
+                <p>You don’t have any pads yet.</p>
+                <button type="button" className="btn btn-primary" onClick={newPad}>
+                  Create your first pad
+                </button>
+              </>
+            )}
+          </div>
+        ) : (
+          <div className="dash-sections">
+            {groupedPads.recent.length > 0 && (
+              <section className="dash-section" aria-label="Recent pads">
+                <h2 className="dash-section-title">Recent</h2>
+                <div className="dash-grid" role="list">
+                  {groupedPads.recent.map((pad) => (
+                    <article key={pad.id} className="dash-card" role="listitem">
+                      <div className="dash-card-accent" aria-hidden />
+                      <div className="dash-card-body">
+                        {renamingSlug === pad.slug ? (
+                          <input
+                            className="dash-rename-input"
+                            autoFocus
+                            value={renameValue}
+                            onChange={(e) => setRenameValue(e.target.value.toLowerCase())}
+                            onBlur={() => commitRename(pad.slug)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") commitRename(pad.slug);
+                              if (e.key === "Escape") setRenamingSlug(null);
+                            }}
+                            aria-label="New pad name"
+                            placeholder="new-name"
+                          />
+                        ) : (
+                          <button
+                            type="button"
+                            className="dash-card-name-link"
+                            onClick={() => openPad(pad)}
+                            aria-label={`Open pad ${pad.name || pad.slug}`}
+                          >
+                            {pad.name ? (
+                              <div className="dash-name">{pad.name}</div>
+                            ) : (
+                              <div className="dash-name dash-name--slug">{pad.slug}</div>
+                            )}
+                            {pad.name && <div className="dash-name-slug">/{pad.slug}</div>}
+                          </button>
+                        )}
 
-          {/* PIN protection — orthogonal to visibility, hidden for private pads
-              (a private pad already requires an account, a stronger gate). */}
-          {!isPrivate && (
-            <div className="dash-pin">
-              {pad.pin_protected ? (
-                <span className="dash-pin-on">
-                  <span aria-hidden="true">🔢</span> PIN on
-                  <button
-                    type="button"
-                    className="dash-pin-link"
-                    onClick={() => onClearPin(pad.slug)}
-                  >
-                    Remove
-                  </button>
-                </span>
-              ) : pinEditing ? (
-                <span className="dash-pin-edit" role="group" aria-label="Set a PIN">
-                  <select
-                    className="dash-pin-format"
-                    aria-label="PIN format"
-                    value={pinFormat}
-                    onChange={(e) => setPinFormat(e.target.value as PinFormat)}
-                  >
-                    <option value="numeric">Numbers</option>
-                    <option value="alphanumeric">Letters &amp; numbers</option>
-                  </select>
-                  <input
-                    className="dash-pin-input"
-                    type="text"
-                    inputMode={pinFormat === "numeric" ? "numeric" : "text"}
-                    autoComplete="off"
-                    placeholder="PIN"
-                    aria-label={`PIN for ${pad.slug}`}
-                    value={pinDraft}
-                    autoFocus
-                    onChange={(e) => setPinDraft(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") commitPin();
-                      if (e.key === "Escape") {
-                        setPinDraft("");
-                        setPinEditing(false);
-                      }
-                    }}
-                  />
-                  <button
-                    type="button"
-                    className="dash-pin-link"
-                    onClick={commitPin}
-                    disabled={!pinDraft}
-                  >
-                    Set
-                  </button>
-                  <button
-                    type="button"
-                    className="dash-pin-link"
-                    onClick={() => {
-                      setPinDraft("");
-                      setPinEditing(false);
-                    }}
-                  >
-                    Cancel
-                  </button>
-                </span>
-              ) : (
+                        {pad.preview_text && <p className="dash-preview">{pad.preview_text}</p>}
+
+                        <div className="dash-card-meta">
+                          <div className="dash-card-time" title={fullTimestamp(pad.updated_at)}>
+                            {relativeTime(pad.updated_at)}
+                          </div>
+                          <div className="dash-card-indicators" aria-hidden>
+                            <span>{VISIBILITY[pad.visibility].glyph}</span>
+                            {pad.pin_protected && <span>🔐</span>}
+                          </div>
+                        </div>
+
+                        <div className="dash-card-foot">
+                          <div className="dash-actions">
+                            <button
+                              type="button"
+                              className="dash-action"
+                              onClick={() => {
+                                const url = `${window.location.origin}/${user.username}/${pad.name || pad.slug}`;
+                                const doFallback = (text: string) => {
+                                  try {
+                                    const ta = document.createElement("textarea");
+                                    ta.value = text;
+                                    ta.setAttribute("readonly", "");
+                                    ta.style.position = "absolute";
+                                    ta.style.left = "-9999px";
+                                    document.body.appendChild(ta);
+                                    const sel = document.getSelection();
+                                    const range = document.createRange();
+                                    range.selectNodeContents(ta);
+                                    sel?.removeAllRanges();
+                                    sel?.addRange(range);
+                                    const ok = document.execCommand("copy");
+                                    sel?.removeAllRanges();
+                                    document.body.removeChild(ta);
+                                    return ok;
+                                  } catch {
+                                    return false;
+                                  }
+                                };
+                                if (navigator.clipboard && navigator.clipboard.writeText) {
+                                  navigator.clipboard.writeText(url).catch(() => doFallback(url));
+                                } else {
+                                  doFallback(url);
+                                }
+                              }}
+                              aria-label={`Copy link to ${pad.slug}`}
+                            >
+                              ⧉
+                            </button>
+                            <button
+                              type="button"
+                              className="dash-action"
+                              onClick={() => openPadFullPage(pad)}
+                            >
+                              ↗
+                            </button>
+                            <button
+                              type="button"
+                              className="dash-action"
+                              onClick={() => {
+                                setRenameValue(pad.name || "");
+                                setRenamingSlug(pad.slug);
+                              }}
+                            >
+                              ✎
+                            </button>
+                            <button
+                              type="button"
+                              className="dash-action"
+                              onClick={() => toggleLinks(pad.slug)}
+                              aria-expanded={linksSlug === pad.slug}
+                            >
+                              ⎋
+                            </button>
+                            <button
+                              type="button"
+                              className="dash-action"
+                              onClick={() => setArchivedFlag(pad.slug, !archived)}
+                            >
+                              {archived ? "↺" : "⊕"}
+                            </button>
+                          </div>
+                          <div className="dash-card-meta">
+                            <div className="dash-cell-size">{formatBytes(pad.size_bytes)}</div>
+                          </div>
+                        </div>
+
+                        {linksSlug === pad.slug && (
+                          <div className="dash-links">
+                            {links.length === 0 ? (
+                              <p className="dash-links-empty">No old links for this pad.</p>
+                            ) : (
+                              <ul className="dash-links-list">
+                                {links.map((r) => (
+                                  <li key={r.id} className="dash-links-row">
+                                    <code className="dash-links-name">{r.old_slug}</code>
+                                    <button
+                                      type="button"
+                                      className="dash-action dash-action--danger"
+                                      onClick={() => removeLink(pad.slug, r.id)}
+                                      aria-label={`Remove old link ${r.old_slug}`}
+                                    >
+                                      ×
+                                    </button>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </section>
+            )}
+            {groupedPads.older.length > 0 && (
+              <section className="dash-section" aria-label="Older pads">
+                <h2 className="dash-section-title">Older</h2>
+                <div className="dash-grid" role="list">
+                  {groupedPads.older.map((pad) => (
+                    <article key={pad.id} className="dash-card" role="listitem">
+                      <div className="dash-card-accent" aria-hidden />
+                      <div className="dash-card-body">
+                        {renamingSlug === pad.slug ? (
+                          <input
+                            className="dash-rename-input"
+                            autoFocus
+                            value={renameValue}
+                            onChange={(e) => setRenameValue(e.target.value.toLowerCase())}
+                            onBlur={() => commitRename(pad.slug)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") commitRename(pad.slug);
+                              if (e.key === "Escape") setRenamingSlug(null);
+                            }}
+                            aria-label="New pad name"
+                            placeholder="new-name"
+                          />
+                        ) : (
+                          <button
+                            type="button"
+                            className="dash-card-name-link"
+                            onClick={() => openPad(pad)}
+                            aria-label={`Open pad ${pad.name || pad.slug}`}
+                          >
+                            {pad.name ? (
+                              <div className="dash-name">{pad.name}</div>
+                            ) : (
+                              <div className="dash-name dash-name--slug">{pad.slug}</div>
+                            )}
+                            {pad.name && <div className="dash-name-slug">/{pad.slug}</div>}
+                          </button>
+                        )}
+
+                        {pad.preview_text && <p className="dash-preview">{pad.preview_text}</p>}
+
+                        <div className="dash-card-meta">
+                          <div className="dash-card-time" title={fullTimestamp(pad.updated_at)}>
+                            {relativeTime(pad.updated_at)}
+                          </div>
+                          <div className="dash-card-indicators" aria-hidden>
+                            <span>{VISIBILITY[pad.visibility].glyph}</span>
+                            {pad.pin_protected && <span>🔐</span>}
+                          </div>
+                        </div>
+
+                        <div className="dash-card-foot">
+                          <div className="dash-actions">
+                            <button
+                              type="button"
+                              className="dash-action"
+                              onClick={() => {
+                                const url = `${window.location.origin}/${user.username}/${pad.name || pad.slug}`;
+                                const doFallback = (text: string) => {
+                                  try {
+                                    const ta = document.createElement("textarea");
+                                    ta.value = text;
+                                    ta.setAttribute("readonly", "");
+                                    ta.style.position = "absolute";
+                                    ta.style.left = "-9999px";
+                                    document.body.appendChild(ta);
+                                    const sel = document.getSelection();
+                                    const range = document.createRange();
+                                    range.selectNodeContents(ta);
+                                    sel?.removeAllRanges();
+                                    sel?.addRange(range);
+                                    const ok = document.execCommand("copy");
+                                    sel?.removeAllRanges();
+                                    document.body.removeChild(ta);
+                                    return ok;
+                                  } catch {
+                                    return false;
+                                  }
+                                };
+                                if (navigator.clipboard && navigator.clipboard.writeText) {
+                                  navigator.clipboard.writeText(url).catch(() => doFallback(url));
+                                } else {
+                                  doFallback(url);
+                                }
+                              }}
+                              aria-label={`Copy link to ${pad.slug}`}
+                            >
+                              ⧉
+                            </button>
+                            <button
+                              type="button"
+                              className="dash-action"
+                              onClick={() => openPadFullPage(pad)}
+                            >
+                              ↗
+                            </button>
+                            <button
+                              type="button"
+                              className="dash-action"
+                              onClick={() => {
+                                setRenameValue(pad.name || "");
+                                setRenamingSlug(pad.slug);
+                              }}
+                            >
+                              ✎
+                            </button>
+                            <button
+                              type="button"
+                              className="dash-action"
+                              onClick={() => toggleLinks(pad.slug)}
+                              aria-expanded={linksSlug === pad.slug}
+                            >
+                              ⎋
+                            </button>
+                            <button
+                              type="button"
+                              className="dash-action"
+                              onClick={() => setArchivedFlag(pad.slug, !archived)}
+                            >
+                              {archived ? "↺" : "⊕"}
+                            </button>
+                          </div>
+                          <div className="dash-card-meta">
+                            <div className="dash-cell-size">{formatBytes(pad.size_bytes)}</div>
+                          </div>
+                        </div>
+
+                        {linksSlug === pad.slug && (
+                          <div className="dash-links">
+                            {links.length === 0 ? (
+                              <p className="dash-links-empty">No old links for this pad.</p>
+                            ) : (
+                              <ul className="dash-links-list">
+                                {links.map((r) => (
+                                  <li key={r.id} className="dash-links-row">
+                                    <code className="dash-links-name">{r.old_slug}</code>
+                                    <button
+                                      type="button"
+                                      className="dash-action dash-action--danger"
+                                      onClick={() => removeLink(pad.slug, r.id)}
+                                      aria-label={`Remove old link ${r.old_slug}`}
+                                    >
+                                      ×
+                                    </button>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </section>
+            )}
+          </div>
+        )}
+      </section>
+
+      {activePadSlug && (
+        <div className="dash-overlay-backdrop" onClick={closeOverlay} role="presentation">
+          <div className="dash-overlay" onClick={(e) => e.stopPropagation()}>
+            <div className="dash-overlay-header">
+              <div>
+                <div className="dash-overlay-title">{pads.find((pad) => pad.slug === activePadSlug)?.name || activePadSlug}</div>
+                <div className="dash-overlay-subtitle">/{activePadSlug}</div>
+              </div>
+              <div className="dash-overlay-actions">
+                <button type="button" className="btn btn-secondary" onClick={closeOverlay}>
+                  Close
+                </button>
                 <button
                   type="button"
-                  className="dash-pin-link"
-                  onClick={() => setPinEditing(true)}
+                  className="btn btn-primary"
+                  onClick={() => openPadFullPage(pads.find((pad) => pad.slug === activePadSlug)!)}
                 >
-                  Add PIN
+                  Open full page
                 </button>
-              )}
+              </div>
             </div>
-          )}
+            <div className="dash-overlay-body">
+              <div className="pad pad--overlay">
+                <TopBar
+                  slug={activePadSlug}
+                  peers={[]}
+                  connection="connected"
+                  theme={theme}
+                  onToggleTheme={toggle}
+                  canClaim={false}
+                />
+                <div className="pad-canvas-scroll">
+                  <div className="pad-layout">
+                    <div className="pad-canvas">
+                      <CollabEditor
+                        slug={activePadSlug}
+                        seed={""}
+                        onPeersChange={() => {}}
+                        onConnectionChange={() => {}}
+                      />
+                    </div>
+                    <aside className="pad-file-side">
+                      <div className="file-tray">
+                        <div className="file-dropzone">
+                          <span className="file-dropzone-label">Pad details open in full page view for the live editor.</span>
+                        </div>
+                      </div>
+                    </aside>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-      </td>
-
-      <td className="dash-cell-size">{formatBytes(pad.size_bytes)}</td>
-
-      <td className="dash-cell-actions">
-        {confirmingDelete ? (
-          <span className="dash-confirm" role="group" aria-label="Confirm delete">
-            <span className="dash-confirm-label">Delete?</span>
-            <button
-              type="button"
-              className="dash-action dash-action--danger"
-              onClick={onDelete}
-            >
-              Yes
-            </button>
-            <button
-              type="button"
-              className="dash-action"
-              onClick={() => setConfirmingDelete(false)}
-            >
-              No
-            </button>
-          </span>
-        ) : (
-          // Always in the DOM (keyboard/touch reachable); revealed on
-          // row hover / focus-within via CSS (dashboard spec §2).
-          <span className="dash-actions">
-            <button
-              type="button"
-              className="dash-action"
-              onClick={copyLink}
-              aria-label={`Copy link to ${pad.slug}`}
-            >
-              {copied ? "Copied" : "Copy link"}
-            </button>
-            <button
-              type="button"
-              className="dash-action"
-              onClick={() => {
-                setDraft(pad.name ?? "");
-                setRenaming(true);
-              }}
-            >
-              Rename
-            </button>
-            <button
-              type="button"
-              className="dash-action"
-              onClick={() => onArchive(!archived)}
-            >
-              {archived ? "Unarchive" : "Archive"}
-            </button>
-            <button
-              type="button"
-              className="dash-action dash-action--danger"
-              onClick={() => setConfirmingDelete(true)}
-            >
-              Delete
-            </button>
-          </span>
-        )}
-      </td>
-    </tr>
+      )}
+    </main>
   );
 }

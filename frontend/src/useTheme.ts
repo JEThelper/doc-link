@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 type Theme = "light" | "dark";
-const STORAGE_KEY = "spacepad-theme";
+const STORAGE_KEY = "river-theme";
 
 function systemTheme(): Theme {
   return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
@@ -13,12 +13,14 @@ function storedTheme(): Theme | null {
 }
 
 /** Theme with persistence. Until the user overrides, follow prefers-color-scheme. */
-export function useTheme() {
+export function useTheme(forcedTheme?: Theme) {
   const [theme, setTheme] = useState<Theme>(() => storedTheme() ?? systemTheme());
 
+  const effectiveTheme = forcedTheme ?? theme;
+
   useEffect(() => {
-    document.documentElement.setAttribute("data-theme", theme);
-  }, [theme]);
+    document.documentElement.setAttribute("data-theme", effectiveTheme);
+  }, [effectiveTheme]);
 
   // Track system changes only while the user hasn't set an explicit preference.
   useEffect(() => {

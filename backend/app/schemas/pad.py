@@ -38,6 +38,31 @@ class PinUnlockIn(BaseModel):
     pin: str = Field(min_length=1, max_length=64)
 
 
+class ClaimIn(BaseModel):
+    """Dashboard claim submission. ``token`` is required; ``pin`` only when the
+    pad is PIN-protected (the form always shows the field; blank otherwise)."""
+
+    token: str = Field(min_length=1, max_length=64)
+    pin: str | None = Field(default=None, max_length=64)
+
+
+class ClaimTokenOut(BaseModel):
+    token: str
+    expires_at: datetime
+
+
+class RedirectOut(BaseModel):
+    """A historical address that still resolves to a pad (the "old links" view)."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    old_slug: str
+    namespace: str
+    target_url: str
+    created_at: datetime
+
+
 class PadOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -59,10 +84,14 @@ class PadOut(BaseModel):
     # True when the pad is PIN-gated and this requester hasn't unlocked it; when
     # set, `content` is withheld (empty) so locked content never leaks.
     locked: bool = False
+    # Browser-facing canonical address for an owned pad (`/{username}/{padname}`).
+    # The REST API always returns pad content directly (no 301); the SPA uses this
+    # to canonicalize the address bar client-side (AUDIT B4). None for anon pads.
+    canonical_url: str | None = None
 
 
 class PadListItem(BaseModel):
-    """Row in the dashboard pad list (no content body — kept light)."""
+    """Row in the dashboard pad list (no full content body — kept light)."""
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -77,6 +106,7 @@ class PadListItem(BaseModel):
     updated_at: datetime
     file_count: int = 0
     size_bytes: int = 0
+    preview_text: str | None = None
 
 
 class CollaboratorIn(BaseModel):
