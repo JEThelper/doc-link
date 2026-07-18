@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 
 
 import { useAuth } from "../auth";
-import { useTheme } from "../useTheme";
+
 
 interface Props {
   mode: "login" | "signup";
@@ -39,7 +39,7 @@ function validateUsername(raw: string): string | null {
 
 export default function AuthPage({ mode }: Props) {
   const navigate = useNavigate();
-  useTheme("light");
+
   const { user, login, signup } = useAuth();
 
   const [email, setEmail] = useState("");

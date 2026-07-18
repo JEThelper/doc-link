@@ -4,11 +4,11 @@ import { Link, useNavigate } from "react-router-dom";
 
 import { createPad } from "../api";
 import { useAuth } from "../auth";
-import { useTheme } from "../useTheme";
+
 
 export default function Landing() {
   const navigate = useNavigate();
-  useTheme("light");
+
   const { user, ready } = useAuth();
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
