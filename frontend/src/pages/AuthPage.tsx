@@ -45,7 +45,7 @@ export default function AuthPage({ mode }: Props) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [username, setUsername] = useState("");
-  const [displayName, setDisplayName] = useState("");
+
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -77,8 +77,7 @@ export default function AuthPage({ mode }: Props) {
         await signup(
           email,
           password,
-          username.trim().toLowerCase(),
-          displayName || undefined
+          username.trim().toLowerCase()
         );
       } else {
         await login(email, password);
@@ -121,19 +120,6 @@ export default function AuthPage({ mode }: Props) {
                 <>This becomes your pad address: <code>{username || "yourname"}/padname</code></>
               )}
             </small>
-          </label>
-        )}
-
-        {isSignup && (
-          <label className="auth-field">
-            <span>Display name (optional)</span>
-            <input
-              type="text"
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              maxLength={80}
-              autoComplete="nickname"
-            />
           </label>
         )}
 

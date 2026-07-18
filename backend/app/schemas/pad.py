@@ -119,7 +119,7 @@ class CollaboratorOut(BaseModel):
 
     user_id: uuid.UUID
     email: str
-    display_name: str | None
+
     role: CollaboratorRole
     invited_at: datetime
     accepted_at: datetime | None

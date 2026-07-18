@@ -78,7 +78,7 @@ async def upsert_profile(
     *,
     user_id: uuid.UUID | str,
     email: str,
-    display_name: str | None = None,
+
     email_verified: bool = False,
     provider: str | None = None,
     username: str | None = None,
@@ -99,7 +99,7 @@ async def upsert_profile(
         user = User(
             id=uid,
             email=normalized,
-            display_name=display_name,
+
             email_verified=email_verified,
             oauth_provider=provider,
             username=chosen_username,
@@ -121,7 +121,7 @@ async def upsert_profile(
             user = User(
                 id=uid,
                 email=normalized,
-                display_name=display_name,
+
                 email_verified=email_verified,
                 oauth_provider=provider,
                 username=retry_username,
@@ -134,9 +134,7 @@ async def upsert_profile(
     changed = False
     if normalized and user.email != normalized:
         user.email = normalized
-        changed = True
-    if display_name and user.display_name != display_name:
-        user.display_name = display_name
+
         changed = True
     if provider and user.oauth_provider != provider:
         user.oauth_provider = provider
@@ -167,7 +165,7 @@ async def get_or_sync_from_claims(
 
     email = (claims.get("email") or "").strip().lower()
     meta = claims.get("user_metadata") or {}
-    display_name = meta.get("display_name") or meta.get("full_name") or meta.get("name")
+
     provider = (claims.get("app_metadata") or {}).get("provider")
 
     if not email:
@@ -183,7 +181,7 @@ async def get_or_sync_from_claims(
         db,
         user_id=uid,
         email=email,
-        display_name=display_name,
+
         email_verified=mark_verified,
         provider=provider,
     )
@@ -195,7 +193,7 @@ async def create_user(
     email: str,
     username: str,
     password: str,
-    display_name: str | None = None,
+
 ) -> User:
     # Validate and normalize username
     try:
@@ -207,7 +205,7 @@ async def create_user(
         email=email.strip().lower(),
         username=normalized_username,
         password_hash=auth_service.hash_password(password),
-        display_name=display_name,
+
     )
     db.add(user)
     try:
@@ -242,7 +240,7 @@ async def upsert_google_user(
     *,
     email: str,
     subject: str,
-    display_name: str | None,
+
 ) -> User:
     """Find or create a user from a verified Google profile."""
     existing = await get_by_email(db, email)
@@ -267,7 +265,7 @@ async def upsert_google_user(
         oauth_provider="google",
         oauth_subject=subject,
         email_verified=True,
-        display_name=display_name,
+
         username=username,
     )
     db.add(user)

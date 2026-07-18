@@ -119,7 +119,7 @@ export default function TopBar({
               My Pads
             </Link>
             <span className="topbar-user-name" title={user.email}>
-              {user.display_name || user.email}
+              {user.username || user.email}
             </span>
             <button type="button" className="text-link" onClick={logout}>
               Log out

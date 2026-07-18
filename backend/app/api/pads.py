@@ -465,7 +465,7 @@ async def list_collaborators(
         CollaboratorOut(
             user_id=c.user_id,
             email=u.email,
-            display_name=u.display_name,
+
             role=c.role,
             invited_at=c.invited_at,
             accepted_at=c.accepted_at,
@@ -506,7 +506,7 @@ async def add_collaborator(
     return CollaboratorOut(
         user_id=collab.user_id,
         email=invited.email,
-        display_name=invited.display_name,
+
         role=collab.role,
         invited_at=collab.invited_at,
         accepted_at=collab.accepted_at,

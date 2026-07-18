@@ -11,12 +11,12 @@ async def _signup(client, email="a@example.com", password="password123", usernam
 
 
 async def test_signup_returns_access_token_and_sets_cookie(client):
-    resp = await _signup(client, display_name="Ada")
+    resp = await _signup(client)
     assert resp.status_code == 201
     body = resp.json()
     assert body["access_token"]
     assert body["user"]["email"] == "a@example.com"
-    assert body["user"]["display_name"] == "Ada"
+
     assert "spacepad_refresh" in resp.cookies
 
 

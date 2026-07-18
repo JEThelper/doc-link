@@ -27,7 +27,7 @@ vi.mock("../auth", () => ({
       id: "user-1",
       username: "demo",
       email: "demo@example.com",
-      display_name: "Demo",
+
       email_verified: true,
       created_at: "2024-01-01T00:00:00Z",
     },

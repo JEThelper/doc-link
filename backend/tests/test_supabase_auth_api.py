@@ -21,7 +21,7 @@ from app.services.supabase_auth import SupabaseAuthError
 USER_ID = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee"
 
 
-def _session(email="a@example.com", display_name="Ada", *, provider="email"):
+def _session(email="a@example.com", *, provider="email"):
     return {
         "access_token": "supa-access-token",
         "refresh_token": "supa-refresh-token",
@@ -29,7 +29,7 @@ def _session(email="a@example.com", display_name="Ada", *, provider="email"):
             "id": USER_ID,
             "email": email,
             "email_confirmed_at": "2026-01-01T00:00:00Z",
-            "user_metadata": {"display_name": display_name},
+
             "app_metadata": {"provider": provider},
         },
     }
@@ -47,10 +47,10 @@ class FakeSupabase:
         if name in self.raise_with:
             raise self.raise_with[name]
 
-    async def sign_up(self, *, email, password, username, display_name):
+    async def sign_up(self, *, email, password, username):
         self.calls.append(("sign_up", email))
         self._maybe_raise("sign_up")
-        return _session(email=email, display_name=display_name)
+        return _session(email=email)
 
     async def sign_in_password(self, *, email, password):
         self.calls.append(("sign_in_password", email))
@@ -101,13 +101,13 @@ def fake_supabase(monkeypatch):
 async def test_supabase_signup_returns_token_and_sets_cookie(client, fake_supabase):
     resp = await client.post(
         "/api/auth/signup",
-        json={"email": "a@example.com", "password": "password123", "username": "testuser", "display_name": "Ada"},
+        json={"email": "a@example.com", "password": "password123", "username": "testuser"},
     )
     assert resp.status_code == 201
     body = resp.json()
     assert body["access_token"] == "supa-access-token"
     assert body["user"]["email"] == "a@example.com"
-    assert body["user"]["display_name"] == "Ada"
+
     assert body["user"]["email_verified"] is True
     assert "spacepad_refresh" in resp.cookies
     assert ("sign_up", "a@example.com") in fake_supabase.calls

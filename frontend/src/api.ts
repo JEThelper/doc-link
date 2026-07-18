@@ -52,7 +52,7 @@ export interface PadListItem {
 export interface Collaborator {
   user_id: string;
   email: string;
-  display_name: string | null;
+
   role: CollaboratorRole;
   invited_at: string;
   accepted_at: string | null;

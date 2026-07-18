@@ -11,7 +11,7 @@ export interface AuthUser {
   id: string;
   username: string;
   email: string;
-  display_name: string | null;
+
   email_verified: boolean;
   created_at: string;
 }
@@ -25,12 +25,7 @@ interface AuthContextValue {
   user: AuthUser | null;
   ready: boolean;
   login: (email: string, password: string) => Promise<void>;
-  signup: (
-    email: string,
-    password: string,
-    username: string,
-    displayName?: string
-  ) => Promise<void>;
+  signup: (email: string, pass: string, username: string) => Promise<void>;
   logout: () => Promise<void>;
   authedFetch: (input: string, init?: RequestInit) => Promise<Response>;
   // Current in-memory access token (for the WebSocket handshake, which can't
@@ -107,7 +102,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           email,
           password,
           username,
-          display_name: displayName || null,
         }),
       });
       if (!resp.ok) throw new Error(await readError(resp, "Signup failed."));

@@ -98,7 +98,6 @@ def _supabase_http_error(err: SupabaseAuthError) -> HTTPException:
 async def _profile_from_gotrue(db: AsyncSession, gotrue_user: dict) -> User:
     """Mirror a gotrue user into the ``public.users`` profile (same UUID)."""
     meta = gotrue_user.get("user_metadata") or {}
-    display_name = meta.get("display_name") or meta.get("full_name") or meta.get("name")
     provider = (gotrue_user.get("app_metadata") or {}).get("provider")
     # Pass the username the user actually chose at signup (stored in gotrue's
     # ``data`` → ``user_metadata``) instead of letting upsert_profile derive one
@@ -107,7 +106,6 @@ async def _profile_from_gotrue(db: AsyncSession, gotrue_user: dict) -> User:
         db,
         user_id=gotrue_user["id"],
         email=gotrue_user.get("email") or "",
-        display_name=display_name,
         email_verified=bool(gotrue_user.get("email_confirmed_at")),
         provider=provider,
         username=meta.get("username"),
@@ -143,7 +141,7 @@ async def signup(body: SignupIn, response: Response, db: AsyncSession = Depends(
     if supabase_auth.client is not None:
         try:
             gotrue = await supabase_auth.client.sign_up(
-                email=body.email, password=body.password, username=body.username, display_name=body.display_name
+                email=body.email, password=body.password, username=body.username
             )
         except SupabaseAuthError as err:
             raise _supabase_http_error(err)
@@ -151,7 +149,7 @@ async def signup(body: SignupIn, response: Response, db: AsyncSession = Depends(
 
     try:
         user = await user_service.create_user(
-            db, email=body.email, username=body.username, password=body.password, display_name=body.display_name
+            db, email=body.email, username=body.username, password=body.password
         )
     except user_service.EmailTakenError:
         raise HTTPException(
@@ -471,7 +469,6 @@ async def google_callback(
         db,
         email=info["email"],
         subject=info["sub"],
-        display_name=info.get("name"),
     )
     redirect = RedirectResponse(settings.frontend_base_url)
     _set_refresh_cookie(redirect, auth_service.create_refresh_token(user.id))

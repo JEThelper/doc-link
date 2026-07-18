@@ -280,7 +280,7 @@ export default function AccountPads() {
           {user && (
             <span className="topbar-user">
               <span className="topbar-user-name" title={user.email}>
-                {user.display_name || user.email}
+                {user.username || user.email}
               </span>
               <button type="button" className="text-link" onClick={logout}>
                 Log out
