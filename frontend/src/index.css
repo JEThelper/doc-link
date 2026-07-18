@@ -53,31 +53,38 @@ h1, h2, h3 {
   font-family: var(--font-sans);
   font-size: var(--text-sm);
   font-weight: 500;
-  padding: 10px 18px;
+  padding: 12px 20px;
   border-radius: var(--radius-sm);
   border: 1px solid transparent;
   cursor: pointer;
-  transition: background var(--dur-micro) var(--ease-out),
-    border-color var(--dur-micro) var(--ease-out),
-    box-shadow var(--dur-micro) var(--ease-out);
+  transition: background var(--dur-micro) var(--ease-out), box-shadow var(--dur-micro) var(--ease-out), opacity var(--dur-micro) var(--ease-out);
+}
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
 }
 /* Filled, colored primary (per --accent), not outline-only. */
 .btn-primary {
-  background: var(--color-accent);
+  background: var(--gradient-primary);
   color: var(--color-accent-contrast);
   box-shadow: var(--shadow-sm);
+  border: none;
 }
 .btn-primary:hover {
-  background: var(--color-accent-strong);
+  box-shadow: var(--shadow-pop);
+  filter: brightness(1.1);
 }
 .btn-secondary {
-  background: var(--color-surface-raised);
+  background: var(--color-glass-bg);
   border-color: var(--color-border-subtle);
   color: var(--color-text-primary);
   box-shadow: var(--shadow-sm);
 }
 .btn-secondary:hover {
   border-color: var(--color-text-muted);
+  box-shadow: var(--shadow-card);
 }
 
 .text-link {
@@ -100,8 +107,8 @@ h1, h2, h3 {
 
 /* Reusable elevated surface. */
 .raised {
-  background: var(--color-surface-raised);
-  border: 1px solid var(--color-border-subtle);
+  background: var(--color-glass-bg);
+  border: 1px solid var(--color-glass-border);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-card);
 }
@@ -159,77 +166,71 @@ h1, h2, h3 {
   padding: 0 var(--space-3);
 }
 
-.hero {
+.editorial-hero {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-6);
   padding: var(--space-8) 0 var(--space-6);
-  max-width: 720px;
 }
-.hero-eyebrow {
-  font-size: var(--text-xs);
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--color-text-muted);
-  margin: 0 0 var(--space-2);
+.editorial-hero-content {
+  flex: 1 1 400px;
+  max-width: 500px;
 }
-.hero-title {
+.editorial-title {
   font-family: var(--font-serif);
   font-size: var(--text-hero);
-  line-height: 1.08;
+  line-height: 1.05;
   letter-spacing: -0.02em;
-  margin: 0 0 var(--space-3);
+  margin: 0 0 var(--space-4);
   color: var(--color-text-primary);
 }
-.hero-sub {
+.editorial-sub {
   font-size: var(--text-md);
   line-height: 1.55;
   color: var(--color-text-secondary);
   margin: 0 0 var(--space-4);
-  max-width: 52ch;
 }
-.hero-cta {
+.editorial-cta {
   display: flex;
   align-items: center;
   gap: var(--space-3);
   flex-wrap: wrap;
 }
-.hero-cta .btn {
+.editorial-cta .btn {
   padding: 13px 22px;
   font-size: var(--text-md);
 }
-.hero-note {
+.editorial-note {
   font-size: var(--text-sm);
   color: var(--color-text-muted);
 }
+.editorial-preview {
+  flex: 1 1 350px;
+  min-width: 0;
+}
 
-/* how it works — three columns with vertical dividers */
-.how {
+.editorial-features {
   padding: var(--space-6) 0;
   border-top: 1px solid var(--color-border-subtle);
-}
-.how-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  display: flex;
+  flex-direction: column;
   gap: var(--space-5);
+  max-width: 800px;
 }
-.how-col {
-  padding-left: var(--space-3);
-  border-left: 1px solid var(--color-border-subtle);
+.feature-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
 }
-.how-col:first-child {
-  padding-left: 0;
-  border-left: none;
-}
-.how-num {
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  color: var(--color-accent);
-  margin: 0 0 var(--space-1);
-}
-.how-col h3 {
+.feature-row h2 {
   font-size: var(--text-lg);
-  margin: 0 0 var(--space-1);
+  margin: 0;
+  color: var(--color-text-primary);
 }
-.how-col p {
-  font-size: var(--text-sm);
+.feature-row p {
+  font-size: var(--text-md);
   line-height: 1.55;
   color: var(--color-text-secondary);
   margin: 0;
@@ -256,11 +257,15 @@ h1, h2, h3 {
   max-width: 42ch;
 }
 .preview-card {
-  background: var(--color-surface-raised);
-  border: 1px solid var(--color-border-subtle);
+  background: var(--color-glass-bg);
+  border: 1px solid var(--color-glass-border);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-pop);
+  box-shadow: var(--shadow-pop), var(--glow-card);
   overflow: hidden;
+  transition: transform var(--dur-state) var(--ease-spring), box-shadow var(--dur-state) var(--ease-spring);
+}
+.preview-card:hover {
+  box-shadow: var(--shadow-pop), var(--shadow-pop);
 }
 .preview-bar {
   display: flex;
@@ -352,8 +357,8 @@ h1, h2, h3 {
   flex: 0 0 calc(var(--topbar-height) + env(safe-area-inset-top));
   padding: env(safe-area-inset-top) max(var(--space-2), env(safe-area-inset-right)) 0
     max(var(--space-2), env(safe-area-inset-left));
-  background: var(--color-surface-raised);
-  border-bottom: 1px solid var(--color-border-subtle);
+  background: var(--color-glass-bg);
+  border-bottom: 1px solid var(--color-glass-border);
   box-shadow: var(--shadow-sm);
   position: relative;
   z-index: 5;
@@ -596,13 +601,17 @@ h1, h2, h3 {
 }
 /* The writing surface is a distinct, raised card — NOT page-on-page flat. */
 .pad-canvas {
-  background: var(--color-surface-raised);
-  border: 1px solid var(--color-border-subtle);
+  background: var(--color-glass-bg);
+  border: 1px solid var(--color-glass-border);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-card);
+  box-shadow: var(--shadow-card), var(--glow-card);
   padding: var(--space-3);
   /* make the canvas sit visually above the page and pull content up */
   margin-top: 4px;
+  transition: transform var(--dur-state) var(--ease-spring), box-shadow var(--dur-state) var(--ease-spring);
+}
+.pad-canvas:hover, .pad-canvas:focus-within {
+  box-shadow: var(--shadow-card), var(--shadow-pop);
 }
 .editor {
   display: block;
@@ -661,8 +670,8 @@ h1, h2, h3 {
 /* file tray — a real, present, elevated region (not a floating dashed line) */
 .pad-file-side { width: 100%; }
 .file-tray {
-  background: var(--color-surface-raised);
-  border: 1px solid var(--color-border-subtle);
+  background: var(--color-glass-bg);
+  border: 1px solid var(--color-glass-border);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-sm);
   padding: var(--space-3);
@@ -923,8 +932,8 @@ a.file-chip-name:hover {
   flex-direction: column;
   gap: var(--space-3);
   padding: var(--space-3);
-  border-right: 1px solid var(--color-border-subtle);
-  background: var(--color-surface);
+  border-right: 1px solid var(--color-glass-border);
+  background: var(--color-glass-bg);
 }
 .dash-sidebar .brand-mark {
   margin-bottom: var(--space-1);
@@ -1132,18 +1141,18 @@ a.file-chip-name:hover {
   display: inline-block;
   width: 100%;
   margin: 0 0 var(--space-2);
-  background: var(--color-surface-raised);
-  border: 1px solid var(--color-border-subtle);
+  background: var(--color-glass-bg);
+  border: 1px solid var(--color-glass-border);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-card);
   break-inside: avoid;
   overflow: hidden;
-  transition: box-shadow var(--dur-micro) var(--ease-out),
-    transform var(--dur-micro) var(--ease-out);
+  transition: box-shadow var(--dur-micro) var(--ease-spring),
+    transform var(--dur-micro) var(--ease-spring);
 }
 .dash-card:hover,
 .dash-card:focus-within {
-  box-shadow: var(--shadow-pop);
+  box-shadow: var(--shadow-pop), var(--shadow-pop);
 }
 .dash-card-accent {
   height: 4px;
@@ -1346,7 +1355,6 @@ a.file-chip-name:hover {
   position: fixed;
   inset: 0;
   background: rgba(20, 20, 20, 0.55);
-  backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1446,21 +1454,15 @@ a.file-chip-name:hover {
 
 /* ---------- responsive ---------- */
 @media (max-width: 900px) {
-  .preview-section { grid-template-columns: 1fr; }
-  .how-grid { gap: var(--space-3); }
+  .editorial-hero { gap: var(--space-4); }
+  .editorial-hero-content { flex: 1 1 100%; max-width: 100%; }
+  .editorial-preview { flex: 1 1 100%; margin-top: var(--space-3); }
 }
 
 @media (max-width: 768px) {
-  .hero { padding: var(--space-6) 0 var(--space-4); }
-  .hero-title { font-size: var(--text-xl); }
-  .how-grid { grid-template-columns: 1fr; }
-  .how-col {
-    padding-left: 0;
-    border-left: none;
-    padding-top: var(--space-2);
-    border-top: 1px solid var(--color-border-subtle);
-  }
-  .how-col:first-child { padding-top: 0; border-top: none; }
+  .editorial-hero { padding: var(--space-6) 0 var(--space-4); }
+  .editorial-title { font-size: var(--text-xl); }
+  .editorial-features { gap: var(--space-4); }
   .dash-grid { column-width: auto; columns: 1; }
   /* touch: keep actions visible (no hover) */
   .dash-actions { opacity: 1; }
@@ -1469,7 +1471,7 @@ a.file-chip-name:hover {
 /* Very small phones: the hero headline (serif, 3 lines) must not run past the
    edge — step it down once more so the longest line fits at ~360px. */
 @media (max-width: 480px) {
-  .hero-title { font-size: 26px; }
+  .editorial-title { font-size: 26px; }
   .landing-main { padding: 0 var(--space-2); }
   .landing-nav { gap: var(--space-2); }
   .landing-nav a[href="#how"] { display: none; }

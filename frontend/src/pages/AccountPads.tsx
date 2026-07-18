@@ -26,6 +26,7 @@ const VISIBILITY: Record<Visibility, { glyph: string; label: string }> = {
   private: { glyph: "🔒", label: "Private" },
 };
 
+
 /** Extract the pad's address segment (slug or name) from a pasted URL/path. */
 function parseSlug(input: string): string {
   const trimmed = input.trim();
