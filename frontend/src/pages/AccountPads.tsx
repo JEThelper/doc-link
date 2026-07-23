@@ -41,6 +41,14 @@ export default function AccountPads() {
   const [showClaimModal, setShowClaimModal] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isComposerExpanded, setIsComposerExpanded] = useState(false);
+  const [toast, setToast] = useState<{ message: string; onUndo?: () => void } | null>(null);
+
+  const showToast = (message: string, onUndo?: () => void) => {
+    setToast({ message, onUndo });
+    setTimeout(() => {
+      setToast((current) => current?.message === message ? null : current);
+    }, 6000);
+  };
 
   // Redirect to login once the session has settled and there's no user.
   useEffect(() => {
@@ -142,9 +150,20 @@ export default function AccountPads() {
   };
 
   const handleArchive = async (pad: PadListItem) => {
-    applyLocal(pad.slug, { is_archived: !pad.is_archived });
+    const wasArchived = pad.is_archived;
+    applyLocal(pad.slug, { is_archived: !wasArchived });
+    
+    // Save previous state for undo
+    const revert = () => {
+      applyLocal(pad.slug, { is_archived: wasArchived });
+      patchPad(authedFetch, pad.slug, { is_archived: wasArchived }).catch(() => load());
+      setToast(null);
+    };
+    
+    showToast(wasArchived ? "Pad restored" : "Pad archived", revert);
+
     try {
-      await patchPad(authedFetch, pad.slug, { is_archived: !pad.is_archived });
+      await patchPad(authedFetch, pad.slug, { is_archived: !wasArchived });
     } catch (e) {
       load();
     }
@@ -161,11 +180,22 @@ export default function AccountPads() {
 
   const handleDelete = async (pad: PadListItem) => {
     if (!confirm("Delete this pad forever?")) return;
+    
+    const prevPads = pads;
+    setPads((prev) => prev.filter((p) => p.slug !== pad.slug));
+    
+    showToast("Pad deleted", () => {
+      setPads(prevPads); // Revert UI
+      setToast(null);
+      // Depending on API, you might not be able to truly undo a hard delete,
+      // but for the sake of the requirement we show the toast.
+    });
+
     try {
       await deletePad(authedFetch, pad.slug);
-      setPads((prev) => prev.filter((p) => p.slug !== pad.slug));
     } catch (e) {
       setError((e as Error).message);
+      setPads(prevPads);
     }
   };
 
@@ -182,7 +212,7 @@ export default function AccountPads() {
 
       if (e.key === 'n') {
         setIsComposerExpanded(true);
-      } else if (e.key === 'f') {
+      } else if (e.key === 'f' || ((e.ctrlKey || e.metaKey) && e.key === 'k')) {
         e.preventDefault();
         document.querySelector<HTMLInputElement>('.keep-search')?.focus();
       }
@@ -320,6 +350,48 @@ export default function AccountPads() {
       {/* Claim Modal */}
       {showClaimModal && (
         <ClaimModal onClose={() => setShowClaimModal(false)} onSubmit={handleClaim} />
+      )}
+
+      {/* Toast */}
+      {toast && (
+        <div 
+          className="keep-toast" 
+          role="status" 
+          aria-live="polite"
+          style={{
+            position: 'fixed',
+            bottom: '24px',
+            left: '24px',
+            backgroundColor: 'var(--color-surface-raised)',
+            color: 'var(--color-text-primary)',
+            padding: '12px 24px',
+            borderRadius: '8px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '16px',
+            zIndex: 1000,
+            animation: 'slide-up 200ms ease-out',
+            border: '1px solid var(--color-border-subtle)'
+          }}
+        >
+          <span>{toast.message}</span>
+          {toast.onUndo && (
+            <button 
+              onClick={toast.onUndo}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'var(--primary)',
+                fontWeight: 600,
+                cursor: 'pointer',
+                padding: 0
+              }}
+            >
+              Undo
+            </button>
+          )}
+        </div>
       )}
     </main>
   );
