@@ -1,7 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-
-import BrandWordmark from "../components/BrandWordmark";
+import { useNavigate } from "react-router-dom";
 import TopBar from "../components/TopBar";
 import CollabEditor from "../components/CollabEditor";
 import ThemeToggle from "../components/ThemeToggle";
@@ -15,6 +13,7 @@ import {
   listMyPads,
   listRedirects,
   patchPad,
+  deletePad,
 } from "../api";
 import { useAuth } from "../auth";
 import { fullTimestamp, formatBytes, relativeTime } from "../format";
@@ -42,7 +41,7 @@ function parseSlug(input: string): string {
 }
 
 export default function AccountPads() {
-  const { user, ready, authedFetch, logout } = useAuth();
+  const { user, ready, authedFetch } = useAuth();
   const { theme, toggle } = useTheme();
   const navigate = useNavigate();
 
@@ -216,6 +215,16 @@ export default function AccountPads() {
     }
   }
 
+  async function handleDelete(slug: string) {
+    if (!confirm("Are you sure you want to delete this pad?")) return;
+    try {
+      await deletePad(authedFetch, slug);
+      setPads((prev) => prev.filter((p) => p.slug !== slug));
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
+
   if (!ready) return <div className="pad-state" />;
   if (!user) return null;
 
@@ -260,75 +269,45 @@ export default function AccountPads() {
   };
 
   return (
-    <main className="dash-shell">
-      <aside className="dash-sidebar">
-        <Link to="/" className="brand-mark" aria-label="River home">
-          <BrandWordmark />
-        </Link>
-        <nav className="dash-nav" aria-label="Dashboard navigation">
-          <button type="button" className="dash-nav-item is-active">
-            <span aria-hidden>▣</span>
-            <span>Your pads</span>
-          </button>
-          <button type="button" className="dash-nav-item">
-            <span aria-hidden>🗄</span>
-            <span>Archive</span>
-          </button>
-        </nav>
-        <div className="dash-sidebar-footer">
+    <main className="keep-shell">
+      <header className="keep-header">
+        <button className="keep-hamburger" aria-label="Menu">☰</button>
+        <h1 className="keep-title">Your Pads</h1>
+        <div className="keep-actions">
+          <input
+            type="search"
+            className="keep-search"
+            placeholder="Search pads…"
+            aria-label="Search pads by name or slug"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
           <ThemeToggle theme={theme} onToggle={toggle} />
-          {user && (
-            <span className="topbar-user">
-              <span className="topbar-user-name" title={user.email}>
-                {user.username || user.email}
-              </span>
-              <button type="button" className="text-link" onClick={logout}>
-                Log out
-              </button>
-            </span>
-          )}
         </div>
-      </aside>
+      </header>
 
-      <section className="dash-main">
-        <header className="dash-header">
-          <div className="dash-header-right dash-header-right--wide">
-            <input
-              type="search"
-              className="dash-search"
-              placeholder="Search pads…"
-              aria-label="Search pads by name or slug"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-            />
-            <button type="button" className="btn btn-primary" onClick={newPad}>
-              New pad
-            </button>
-          </div>
-        </header>
-
-        <div className="dash-toolbar">
-          <div className="dash-tabs" role="tablist" aria-label="Pad views">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={!archived}
-              className={`dash-tab ${!archived ? "is-active" : ""}`}
-              onClick={() => setArchived(false)}
-            >
-              Active
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={archived}
-              className={`dash-tab ${archived ? "is-active" : ""}`}
-              onClick={() => setArchived(true)}
-            >
-              Archived
-            </button>
-          </div>
+      <div className="keep-toolbar">
+        <div className="keep-tabs" role="tablist" aria-label="Pad views">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={!archived}
+            className={`keep-tab ${!archived ? "is-active" : ""}`}
+            onClick={() => setArchived(false)}
+          >
+            Active
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={archived}
+            className={`keep-tab ${archived ? "is-active" : ""}`}
+            onClick={() => setArchived(true)}
+          >
+            Archived
+          </button>
         </div>
+      </div>
 
         <form className="dash-claim" onSubmit={submitClaim}>
         <div className="dash-claim-fields">
@@ -405,9 +384,9 @@ export default function AccountPads() {
             {groupedPads.recent.length > 0 && (
               <section className="dash-section" aria-label="Recent pads">
                 <h2 className="dash-section-title">Recent</h2>
-                <div className="dash-grid" role="list">
+                <div className="keep-grid" role="list">
                   {groupedPads.recent.map((pad) => (
-                    <article key={pad.id} className="dash-card" role="listitem">
+                    <article key={pad.id} className="keep-card" role="listitem">
                       <div className="dash-card-accent" aria-hidden />
                       <div className="dash-card-body">
                         {renamingSlug === pad.slug ? (
@@ -521,6 +500,14 @@ export default function AccountPads() {
                               onClick={() => setArchivedFlag(pad.slug, !archived)}
                             >
                               {archived ? "↺" : "⊕"}
+                            </button>
+                            <button
+                              type="button"
+                              className="dash-action dash-action--danger"
+                              onClick={() => handleDelete(pad.slug)}
+                              aria-label="Delete pad"
+                            >
+                              🗑
                             </button>
                           </div>
                           <div className="dash-card-meta">
@@ -560,9 +547,9 @@ export default function AccountPads() {
             {groupedPads.older.length > 0 && (
               <section className="dash-section" aria-label="Older pads">
                 <h2 className="dash-section-title">Older</h2>
-                <div className="dash-grid" role="list">
+                <div className="keep-grid" role="list">
                   {groupedPads.older.map((pad) => (
-                    <article key={pad.id} className="dash-card" role="listitem">
+                    <article key={pad.id} className="keep-card" role="listitem">
                       <div className="dash-card-accent" aria-hidden />
                       <div className="dash-card-body">
                         {renamingSlug === pad.slug ? (
@@ -677,6 +664,14 @@ export default function AccountPads() {
                             >
                               {archived ? "↺" : "⊕"}
                             </button>
+                            <button
+                              type="button"
+                              className="dash-action dash-action--danger"
+                              onClick={() => handleDelete(pad.slug)}
+                              aria-label="Delete pad"
+                            >
+                              🗑
+                            </button>
                           </div>
                           <div className="dash-card-meta">
                             <div className="dash-cell-size">{formatBytes(pad.size_bytes)}</div>
@@ -714,7 +709,6 @@ export default function AccountPads() {
             )}
           </div>
         )}
-      </section>
 
       {activePadSlug && (
         <div className="dash-overlay-backdrop" onClick={closeOverlay} role="presentation">
@@ -771,6 +765,7 @@ export default function AccountPads() {
           </div>
         </div>
       )}
+      <button className="fab" onClick={newPad} aria-label="Create new pad">+</button>
     </main>
   );
 }
