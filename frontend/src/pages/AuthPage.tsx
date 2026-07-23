@@ -82,7 +82,7 @@ export default function AuthPage({ mode }: Props) {
       } else {
         await login(email, password);
       }
-      const next = new URLSearchParams(window.location.search).get("next") || "/";
+      const next = new URLSearchParams(window.location.search).get("next") || "/account/pads";
       navigate(next.startsWith("/") ? next : "/", { replace: true });
     } catch (err) {
       setError((err as Error).message);
