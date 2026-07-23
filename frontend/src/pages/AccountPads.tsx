@@ -225,6 +225,25 @@ export default function AccountPads() {
     }
   }
 
+  // Deep-link: open overlay if ?pad=slug present on initial load (desktop only)
+  useEffect(() => {
+    if (isMobile) return;
+    const params = new URLSearchParams(window.location.search);
+    const pad = params.get("pad");
+    if (pad) setActivePadSlug(pad);
+  }, [isMobile]);
+
+  // Back-button handling: close the overlay when the URL no longer contains ?pad=
+  useEffect(() => {
+    const onPop = () => {
+      const params = new URLSearchParams(window.location.search);
+      const pad = params.get("pad");
+      if (!pad) setActivePadSlug(null);
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+
   if (!ready) return <div className="pad-state" />;
   if (!user) return null;
 
@@ -245,24 +264,7 @@ export default function AccountPads() {
     window.history.replaceState({}, "", "/account/pads");
   };
 
-  // Deep-link: open overlay if ?pad=slug present on initial load (desktop only)
-  useEffect(() => {
-    if (isMobile) return;
-    const params = new URLSearchParams(window.location.search);
-    const pad = params.get("pad");
-    if (pad) setActivePadSlug(pad);
-  }, [isMobile]);
 
-  // Back-button handling: close the overlay when the URL no longer contains ?pad=
-  useEffect(() => {
-    const onPop = () => {
-      const params = new URLSearchParams(window.location.search);
-      const pad = params.get("pad");
-      if (!pad) setActivePadSlug(null);
-    };
-    window.addEventListener("popstate", onPop);
-    return () => window.removeEventListener("popstate", onPop);
-  }, []);
 
   const openPadFullPage = (pad: PadListItem) => {
     navigate(`/${user.username}/${pad.name || pad.slug}`);
