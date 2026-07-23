@@ -77,7 +77,7 @@ h1, h2, h3 {
   filter: brightness(1.1);
 }
 .btn-secondary {
-  background: var(--color-glass-bg);
+  background: var(--color-surface);
   border-color: var(--color-border-subtle);
   color: var(--color-text-primary);
   box-shadow: var(--shadow-sm);
@@ -107,8 +107,8 @@ h1, h2, h3 {
 
 /* Reusable elevated surface. */
 .raised {
-  background: var(--color-glass-bg);
-  border: 1px solid var(--color-glass-border);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-card);
 }
@@ -259,15 +259,15 @@ h1, h2, h3 {
   max-width: 42ch;
 }
 .preview-card {
-  background: var(--color-glass-bg);
-  border: 1px solid var(--color-glass-border);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-pop), var(--glow-card);
+  box-shadow: var(--shadow-card);
   overflow: hidden;
   transition: transform var(--dur-state) var(--ease-spring), box-shadow var(--dur-state) var(--ease-spring);
 }
 .preview-card:hover {
-  box-shadow: var(--shadow-pop), var(--shadow-pop);
+  box-shadow: var(--shadow-card);
 }
 .preview-bar {
   display: flex;
@@ -359,8 +359,8 @@ h1, h2, h3 {
   flex: 0 0 calc(var(--topbar-height) + env(safe-area-inset-top));
   padding: env(safe-area-inset-top) max(var(--space-2), env(safe-area-inset-right)) 0
     max(var(--space-2), env(safe-area-inset-left));
-  background: var(--color-glass-bg);
-  border-bottom: 1px solid var(--color-glass-border);
+  background: var(--color-surface-raised);
+  border-bottom: 1px solid var(--color-border-subtle);
   box-shadow: var(--shadow-sm);
   position: relative;
   z-index: 5;
@@ -603,17 +603,17 @@ h1, h2, h3 {
 }
 /* The writing surface is a distinct, raised card — NOT page-on-page flat. */
 .pad-canvas {
-  background: var(--color-glass-bg);
-  border: 1px solid var(--color-glass-border);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-card), var(--glow-card);
+  box-shadow: var(--shadow-card);
   padding: var(--space-3);
   /* make the canvas sit visually above the page and pull content up */
   margin-top: 4px;
   transition: transform var(--dur-state) var(--ease-spring), box-shadow var(--dur-state) var(--ease-spring);
 }
 .pad-canvas:hover, .pad-canvas:focus-within {
-  box-shadow: var(--shadow-card), var(--shadow-pop);
+  box-shadow: var(--shadow-card);
 }
 .editor {
   display: block;
@@ -669,13 +669,12 @@ h1, h2, h3 {
   pointer-events: none;
 }
 
-/* file tray — a real, present, elevated region (not a floating dashed line) */
+/* file tray — a real, present, elevated region */
 .pad-file-side { width: 100%; }
 .file-tray {
-  background: var(--color-glass-bg);
-  border: 1px solid var(--color-glass-border);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-md);
-  box-shadow: var(--shadow-sm);
   padding: var(--space-3);
 }
 .file-dropzone {
@@ -925,6 +924,72 @@ a.file-chip-name:hover {
 }
 
 /* ---------- dashboard (Google Keep-style card grid) ---------- */
+.keep-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: var(--color-bg);
+}
+.keep-header {
+  display: flex;
+  align-items: center;
+  padding: 12px var(--space-3);
+  background: var(--color-surface-raised);
+  border-bottom: 1px solid var(--color-border-subtle);
+  gap: var(--space-3);
+}
+.keep-hamburger {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  padding: 4px;
+  color: var(--color-text-secondary);
+}
+.keep-title {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--text-lg);
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+.keep-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+.keep-search {
+  padding: 10px 14px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font: inherit;
+  min-width: 300px;
+}
+.keep-toolbar {
+  padding: var(--space-3) var(--space-3) 0;
+}
+.keep-tabs {
+  display: inline-flex;
+  gap: var(--space-2);
+}
+.keep-tab {
+  background: none;
+  border: none;
+  font: inherit;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  padding: 8px 16px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+}
+.keep-tab.is-active {
+  color: var(--color-accent);
+  border-bottom-color: var(--color-accent);
+}
+
 .dash-shell {
   display: grid;
   grid-template-columns: 220px minmax(0, 1fr);
@@ -936,8 +1001,8 @@ a.file-chip-name:hover {
   flex-direction: column;
   gap: var(--space-3);
   padding: var(--space-3);
-  border-right: 1px solid var(--color-glass-border);
-  background: var(--color-glass-bg);
+  border-right: 1px solid var(--color-border-subtle);
+  background: var(--color-surface-raised);
 }
 .dash-sidebar .brand-mark {
   margin-bottom: var(--space-1);
@@ -1141,22 +1206,27 @@ a.file-chip-name:hover {
   column-width: 250px;
   column-gap: var(--space-2);
 }
+.keep-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--space-3);
+  align-items: start;
+}
 .dash-card {
   display: inline-block;
   width: 100%;
   margin: 0 0 var(--space-2);
-  background: var(--color-glass-bg);
-  border: 1px solid var(--color-glass-border);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-md);
-  box-shadow: var(--shadow-card);
+  box-shadow: var(--shadow-sm);
   break-inside: avoid;
   overflow: hidden;
-  transition: box-shadow var(--dur-micro) var(--ease-spring),
-    transform var(--dur-micro) var(--ease-spring);
+  transition: transform var(--dur-micro) var(--ease-spring), box-shadow var(--dur-micro) var(--ease-spring);
 }
 .dash-card:hover,
 .dash-card:focus-within {
-  box-shadow: var(--shadow-pop), var(--shadow-pop);
+  box-shadow: var(--shadow-card);
 }
 .dash-card-accent {
   height: 4px;
@@ -1192,21 +1262,19 @@ a.file-chip-name:hover {
 
 /* Keep-style note cards (Google Keep look) */
 .keep-card {
-  display: inline-block;
+  display: flex;
+  flex-direction: column;
   width: 100%;
-  margin: 0 0 var(--space-2);
-  background: var(--color-note-bg, #fffde7);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-md);
-  box-shadow: var(--shadow-sm);
-  break-inside: avoid;
+  box-shadow: none;
   overflow: hidden;
-  transition: transform var(--dur-micro) var(--ease-spring),
-    box-shadow var(--dur-micro) var(--ease-spring);
+  transition: box-shadow var(--dur-micro) var(--ease-out);
 }
 .keep-card:hover,
 .keep-card:focus-within {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-pop);
+  box-shadow: var(--shadow-sm);
 }
 
 /* Floating Action Button */

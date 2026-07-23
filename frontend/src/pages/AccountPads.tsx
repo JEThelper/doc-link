@@ -387,7 +387,6 @@ export default function AccountPads() {
                 <div className="keep-grid" role="list">
                   {groupedPads.recent.map((pad) => (
                     <article key={pad.id} className="keep-card" role="listitem">
-                      <div className="dash-card-accent" aria-hidden />
                       <div className="dash-card-body">
                         {renamingSlug === pad.slug ? (
                           <input
@@ -550,7 +549,6 @@ export default function AccountPads() {
                 <div className="keep-grid" role="list">
                   {groupedPads.older.map((pad) => (
                     <article key={pad.id} className="keep-card" role="listitem">
-                      <div className="dash-card-accent" aria-hidden />
                       <div className="dash-card-body">
                         {renamingSlug === pad.slug ? (
                           <input
