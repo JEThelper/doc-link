@@ -1,6 +1,7 @@
 @import "@fontsource-variable/inter";
 @import "@fontsource/jetbrains-mono";
 @import "./styles/tokens.css";
+@import "./styles/keep-ui.css";
 @import "./styles/lockedpad.css";
 
 * {

@@ -47,6 +47,13 @@ export interface PadListItem {
   file_count: number;
   size_bytes: number;
   preview_text?: string | null;
+  pinned?: boolean;
+  color?: string;
+  status?: string;
+  owner?: string;
+  shared?: boolean;
+  locked?: boolean;
+  lastCheckedAt?: string;
 }
 
 export interface Collaborator {
