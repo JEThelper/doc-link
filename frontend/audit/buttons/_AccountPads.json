@@ -1,0 +1,9 @@
+[
+  {
+    "tag": "a",
+    "text": "Go home",
+    "classes": "text-link",
+    "href": "/",
+    "ariaLabel": null
+  }
+]

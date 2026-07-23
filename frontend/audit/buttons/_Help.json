@@ -1,0 +1,16 @@
+[
+  {
+    "tag": "button",
+    "text": "",
+    "classes": "theme-toggle",
+    "href": null,
+    "ariaLabel": "Switch to dark theme"
+  },
+  {
+    "tag": "a",
+    "text": "← Back home",
+    "classes": "text-link",
+    "href": "/",
+    "ariaLabel": null
+  }
+]
