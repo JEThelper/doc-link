@@ -619,7 +619,6 @@ async def get_pad_raw(
 # The `/u/` prefix removes the ambiguity entirely. The browser-facing URL scheme
 # (`/{username}/{padname}`) is unaffected — that is served by the SPA, not this
 # REST route. See DECISIONS.md.
-@router.get("/{username}/{padname}")
 @router.get("/u/{username}/{padname}")
 async def get_owned_pad(
     username: str,
