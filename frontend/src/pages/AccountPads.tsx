@@ -247,7 +247,7 @@ export default function AccountPads() {
     <main className="keep-shell">
       {/* Toolbar and Search */}
       <header className="keep-header">
-        <button className="keep-hamburger" aria-label="Menu" style={{ fontSize: '24px' }}>≡</button>
+        <button className="keep-hamburger" aria-label="Menu">☰</button>
         <h1 className="keep-title">River</h1>
         <div className="keep-actions">
           <input
@@ -386,7 +386,6 @@ export default function AccountPads() {
         className="fab" 
         onClick={() => isMobile ? handleCreatePad("","", "", false) : setIsComposerExpanded(true)}
         aria-label="New pad"
-        style={{ fontSize: '28px', fontWeight: 300, paddingBottom: '2px' }}
       >
         +
       </button>

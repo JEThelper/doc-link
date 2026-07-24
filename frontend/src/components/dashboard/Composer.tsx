@@ -104,9 +104,8 @@ export default function Composer({ onSave, isExpanded = false, onExpandToggle }:
           onClick={() => setPinned(!pinned)}
           aria-pressed={pinned}
           aria-label="Pin pad"
-          style={{ color: 'inherit', fontSize: '20px' }}
         >
-          {pinned ? "★" : "☆"}
+          {pinned ? "📌" : "📍"}
         </button>
       </div>
       <textarea 
@@ -124,10 +123,10 @@ export default function Composer({ onSave, isExpanded = false, onExpandToggle }:
           value={color || "#ffffff"} 
           onChange={(e) => setColor(e.target.value)} 
           aria-label="Change color"
-          style={{ width: '30px', height: '30px', padding: 0, border: 'none', borderRadius: '50%', cursor: 'pointer', background: 'transparent' }}
+          style={{ width: '30px', height: '30px', padding: 0, border: 'none', borderRadius: '50%', cursor: 'pointer' }}
         />
         <div style={{ flex: 1 }}></div>
-        <button type="button" className="btn btn-secondary" onClick={collapse} style={{ color: color ? '#000000' : undefined, borderColor: color ? '#000000' : undefined }}>Close</button>
+        <button type="button" className="btn btn-secondary" onClick={collapse}>Close</button>
       </div>
     </div>
   );
