@@ -10,7 +10,7 @@ export default function Composer({ onSave, isExpanded = false, onExpandToggle }:
   const [expanded, setExpanded] = useState(isExpanded);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
-  const [color, setColor] = useState("#FFFFFF");
+  const [color, setColor] = useState("");
   const [pinned, setPinned] = useState(false);
   
   const containerRef = useRef<HTMLDivElement>(null);
@@ -45,7 +45,7 @@ export default function Composer({ onSave, isExpanded = false, onExpandToggle }:
     onExpandToggle?.(false);
     setTitle("");
     setBody("");
-    setColor("#FFFFFF");
+    setColor("");
     setPinned(false);
   };
 
@@ -85,7 +85,7 @@ export default function Composer({ onSave, isExpanded = false, onExpandToggle }:
     <div 
       className="composer composer-expanded" 
       ref={containerRef}
-      style={{ backgroundColor: color }}
+      style={{ backgroundColor: color || undefined, color: color ? '#000000' : 'inherit' }}
       role="form"
       aria-label="Create new pad"
     >
@@ -104,8 +104,9 @@ export default function Composer({ onSave, isExpanded = false, onExpandToggle }:
           onClick={() => setPinned(!pinned)}
           aria-pressed={pinned}
           aria-label="Pin pad"
+          style={{ color: 'inherit', fontSize: '20px' }}
         >
-          {pinned ? "📌" : "📍"}
+          {pinned ? "★" : "☆"}
         </button>
       </div>
       <textarea 
@@ -120,13 +121,13 @@ export default function Composer({ onSave, isExpanded = false, onExpandToggle }:
         {/* Simple color picker mockup */}
         <input 
           type="color" 
-          value={color} 
+          value={color || "#ffffff"} 
           onChange={(e) => setColor(e.target.value)} 
           aria-label="Change color"
-          style={{ width: '30px', height: '30px', padding: 0, border: 'none', borderRadius: '50%', cursor: 'pointer' }}
+          style={{ width: '30px', height: '30px', padding: 0, border: 'none', borderRadius: '50%', cursor: 'pointer', background: 'transparent' }}
         />
         <div style={{ flex: 1 }}></div>
-        <button type="button" className="btn btn-secondary" onClick={collapse}>Close</button>
+        <button type="button" className="btn btn-secondary" onClick={collapse} style={{ color: color ? '#000000' : undefined, borderColor: color ? '#000000' : undefined }}>Close</button>
       </div>
     </div>
   );

@@ -113,11 +113,14 @@ export async function getPad(
 // --- Dashboard / management (authenticated) --------------------------------
 export async function listMyPads(
   fetcher: Fetcher,
-  opts: { archived?: boolean; q?: string } = {}
+  opts: { archived?: boolean; q?: string; sort?: string; locked?: string; owned?: string } = {}
 ): Promise<PadListItem[]> {
   const params = new URLSearchParams();
   if (opts.archived) params.set("archived", "true");
   if (opts.q) params.set("q", opts.q);
+  if (opts.sort) params.set("sort", opts.sort);
+  if (opts.locked) params.set("locked", opts.locked);
+  if (opts.owned) params.set("owned", opts.owned);
   const qs = params.toString();
   const resp = await fetcher(`/api/pads${qs ? `?${qs}` : ""}`);
   if (!resp.ok) throw new Error("Failed to load your pads.");

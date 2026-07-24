@@ -10,6 +10,8 @@ interface PadCardProps {
   onChangeColor: (pad: PadListItem, color: string) => void;
   onShare: (pad: PadListItem) => void;
   onMore: (pad: PadListItem) => void;
+  selected?: boolean;
+  onSelect?: (checked: boolean) => void;
 }
 
 export default function PadCard({
@@ -19,7 +21,9 @@ export default function PadCard({
   onTogglePin,
   onChangeColor,
   onShare,
-  onMore
+  onMore,
+  selected,
+  onSelect
 }: PadCardProps) {
   const isLocked = pad.locked || pad.pin_protected; // Based on API fields
 
@@ -32,16 +36,30 @@ export default function PadCard({
       style={{ backgroundColor: pad.color || 'var(--color-surface-raised)' }}
       onClick={() => onExpand(pad)}
     >
-      <div className="pad-card-header">
+      <div className="pad-card-header" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        {onSelect && (
+          <input
+            type="checkbox"
+            aria-label="Select pad"
+            checked={selected ?? false}
+            onChange={(e) => {
+              e.stopPropagation();
+              onSelect(e.target.checked);
+            }}
+            onClick={(e) => e.stopPropagation()}
+            style={{ width: '16px', height: '16px' }}
+          />
+        )}
         <button 
           className="icon pin" 
           aria-pressed={pad.pinned || false} 
           aria-label="Pin pad"
           onClick={(e) => { e.stopPropagation(); onTogglePin(pad); }}
+          style={{ fontSize: '18px' }}
         >
-          {pad.pinned ? "📌" : "📍"}
+          {pad.pinned ? "★" : "☆"}
         </button>
-        <h3 id={`pad-title-${pad.id}`} className="pad-title">
+        <h3 id={`pad-title-${pad.id}`} className="pad-title" style={{ flex: 1 }}>
           {pad.name || pad.slug}
         </h3>
         {/* Simple color picker mockup for the swatch */}
@@ -55,7 +73,7 @@ export default function PadCard({
           style={{ width: '24px', height: '24px', padding: 0, border: 'none', borderRadius: '50%', cursor: 'pointer', background: 'transparent' }}
         />
         {isLocked && (
-          <span className="lock" aria-hidden="true" title="Locked">🔒</span>
+          <span className="lock" aria-hidden="true" title="Locked" style={{ fontSize: '16px' }}>⊘</span>
         )}
       </div>
 
@@ -75,15 +93,15 @@ export default function PadCard({
         <span className={`status-dot status-${pad.status || 'ok'}`} title="Synced"></span>
       </div>
 
-      <div className="pad-actions" aria-hidden="true">
+      <div className="pad-actions" aria-hidden="true" style={{ fontSize: '16px', gap: '8px' }}>
         <button className="icon archive" aria-label="Archive" onClick={(e) => { e.stopPropagation(); onArchive(pad); }}>
-          📦
+          ↓
         </button>
         <button className="icon share" aria-label="Share" onClick={(e) => { e.stopPropagation(); onShare(pad); }}>
-          🔗
+          ↗
         </button>
         <button className="icon more" aria-label="More actions" onClick={(e) => { e.stopPropagation(); onMore(pad); }}>
-          ⋮
+          ···
         </button>
       </div>
     </article>

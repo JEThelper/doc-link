@@ -234,7 +234,7 @@
   border: none;
   padding: 16px;
   background: transparent;
-  color: var(--color-text-primary);
+  color: inherit;
   font-size: 16px;
   font-family: inherit;
   resize: none;
@@ -242,6 +242,11 @@
 
 .composer-input:focus {
   outline: none;
+}
+
+.composer-input::placeholder {
+  color: inherit;
+  opacity: 0.6;
 }
 
 .composer-title {
