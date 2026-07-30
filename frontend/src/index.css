@@ -35,7 +35,7 @@ body {
 /* Headings use the serif (deliberate, permanent). Body, UI labels, buttons, and
    the editor writing surface stay sans (see .editor, .btn, etc.). */
 h1, h2, h3 {
-  font-family: var(--font-serif);
+  font-family: var(--font-sans);
   font-weight: 600;
   letter-spacing: -0.01em;
   color: var(--color-text-primary);
@@ -149,13 +149,13 @@ h1, h2, h3 {
   color: var(--color-text-primary);
 }
 
-/* Wordmark "River" in the serif. */
+/* Wordmark "River" — Inter bold, River Blue. */
 .wordmark {
-  font-family: var(--font-serif);
-  font-weight: 600;
+  font-family: var(--font-sans);
+  font-weight: 700;
   font-size: var(--text-lg);
-  letter-spacing: -0.01em;
-  color: var(--color-text-primary);
+  letter-spacing: -0.02em;
+  color: var(--color-primary);
   text-decoration: none;
   line-height: 1;
 }
@@ -182,7 +182,7 @@ h1, h2, h3 {
   max-width: 500px;
 }
 .editorial-title {
-  font-family: var(--font-serif);
+  font-family: var(--font-sans);
   font-size: var(--text-hero);
   line-height: 1.05;
   letter-spacing: -0.02em;
@@ -301,7 +301,7 @@ h1, h2, h3 {
   color: var(--color-text-primary);
 }
 .preview-body h4 {
-  font-family: var(--font-serif);
+  font-family: var(--font-sans);
   font-size: var(--text-md);
   margin: 0 0 var(--space-1);
 }
@@ -856,7 +856,7 @@ a.file-chip-name:hover {
   padding: var(--space-4);
 }
 .auth-title {
-  font-family: var(--font-serif);
+  font-family: var(--font-sans);
   font-size: var(--text-xl);
   font-weight: 600;
   margin: 0 0 var(--space-1);
@@ -1197,7 +1197,7 @@ a.file-chip-name:hover {
 }
 .dash-section-title {
   margin: 0;
-  font-family: var(--font-serif);
+  font-family: var(--font-sans);
   font-size: var(--text-sm);
   text-transform: uppercase;
   letter-spacing: 0.16em;
@@ -1494,7 +1494,7 @@ a.file-chip-name:hover {
   border-bottom: 1px solid var(--color-border-subtle);
 }
 .dash-overlay-title {
-  font-family: var(--font-serif);
+  font-family: var(--font-sans);
   font-size: var(--text-lg);
 }
 .dash-overlay-subtitle {

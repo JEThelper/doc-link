@@ -1,78 +1,322 @@
-/* Locked-pad screen. A calm, on-brand gate (not a modal): a raised PIN card
-   centered over an animated squiggly-line background, addressing the "too flat /
-   not enough visual interest" diagnosis. Uses the walnut tokens. */
+/* Locked-pad — full-page layout: fixed nav + gradient bg + centered PIN card + footer.
+   Matches screen_4 / code_4 of the River design. */
 
+/* ---- Full page shell ---- */
+.locked-pad-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(135deg, #f0f7ff 0%, #e8f4fd 50%, #f0fffe 100%);
+}
+
+[data-theme="dark"] .locked-pad-page {
+  background: linear-gradient(135deg, #0d1b2a 0%, #0f2236 50%, #0d2230 100%);
+}
+
+/* ---- Top nav ---- */
+.locked-pad-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 0 var(--space-4);
+  height: 60px;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--color-border-subtle);
+  flex-shrink: 0;
+}
+
+[data-theme="dark"] .locked-pad-nav {
+  background: rgba(13, 27, 42, 0.85);
+}
+
+.locked-pad-nav-brand {
+  font-family: var(--font-sans);
+  font-size: var(--text-md);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--color-primary);
+  text-decoration: none;
+  flex-shrink: 0;
+}
+
+.locked-pad-nav-links {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex: 1;
+}
+
+.locked-pad-nav-link {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  transition: color 0.14s;
+}
+.locked-pad-nav-link:hover { color: var(--color-primary); }
+
+.locked-pad-nav-signin {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--color-primary);
+  text-decoration: none;
+  padding: 7px 16px;
+  border: 1.5px solid var(--color-primary);
+  border-radius: var(--radius-sm);
+  transition: background 0.14s, color 0.14s;
+  white-space: nowrap;
+}
+.locked-pad-nav-signin:hover {
+  background: var(--color-primary);
+  color: #fff;
+}
+
+/* ---- Main centred area ---- */
+.locked-pad-main {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-6) var(--space-4);
+}
+
+/* ---- PIN card ---- */
+.locked-pad-card {
+  width: 100%;
+  max-width: 420px;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-pop);
+  padding: 40px 36px 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  text-align: center;
+}
+
+@media (max-width: 480px) {
+  .locked-pad-card { padding: var(--space-4) var(--space-3) var(--space-3); }
+}
+
+.locked-pad-icon-wrap {
+  width: 60px;
+  height: 60px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-primary);
+  margin-bottom: var(--space-1);
+}
+.locked-pad-icon-wrap svg { width: 28px; height: 28px; }
+
+.locked-pad-card-title {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--text-xl);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--color-text-primary);
+}
+
+.locked-pad-card-hint {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+/* ---- Individual PIN boxes (numeric, 5 digits) ---- */
+.locked-pin-boxes {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin: var(--space-1) 0;
+}
+
+.locked-pin-box {
+  width: 52px;
+  height: 60px;
+  border: 2px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface);
+  font-family: var(--font-mono);
+  font-size: 24px;
+  font-weight: 700;
+  text-align: center;
+  color: var(--color-text-primary);
+  outline: none;
+  transition: border-color 0.14s, box-shadow 0.14s;
+  caret-color: transparent;
+  -moz-appearance: textfield;
+}
+.locked-pin-box::-webkit-outer-spin-button,
+.locked-pin-box::-webkit-inner-spin-button { -webkit-appearance: none; }
+.locked-pin-box:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 18%, transparent);
+}
+.locked-pin-box.has-error {
+  border-color: var(--color-danger);
+  animation: locked-shake var(--dur-state) var(--ease-in-out);
+}
+.locked-pin-box:disabled { opacity: 0.55; }
+
+/* Alphanumeric (text) fallback input */
+.locked-input {
+  width: 100%;
+  padding: 13px 16px;
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--text-lg);
+  letter-spacing: 0.18em;
+  text-align: center;
+  outline: none;
+  transition: border-color 0.14s, box-shadow 0.14s;
+}
+.locked-input:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 18%, transparent);
+}
+.locked-input.has-error {
+  border-color: var(--color-danger);
+  animation: locked-shake var(--dur-state) var(--ease-in-out);
+}
+.locked-input:disabled { opacity: 0.55; }
+
+.locked-input-error {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-danger);
+  font-weight: 500;
+}
+
+/* ---- Unlock button ---- */
+.locked-pin-unlock-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  justify-content: center;
+  padding: 13px;
+  background: var(--color-primary);
+  color: #fff;
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.14s;
+  margin-top: var(--space-1);
+}
+.locked-pin-unlock-btn:hover:not(:disabled) { background: var(--color-primary-dark); }
+.locked-pin-unlock-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.locked-pin-divider {
+  width: 100%;
+  border: none;
+  border-top: 1px solid var(--color-border-subtle);
+  margin: var(--space-1) 0 0;
+}
+
+.locked-pin-footer-text {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+.locked-pin-footer-text a {
+  color: var(--color-primary);
+  text-decoration: none;
+}
+.locked-pin-footer-text a:hover { text-decoration: underline; }
+
+/* ---- Page footer ---- */
+.locked-pad-footer-outer {
+  background: var(--color-surface-raised);
+  border-top: 1px solid var(--color-border-subtle);
+  flex-shrink: 0;
+}
+.locked-pad-footer-inner {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: var(--space-3) var(--space-4);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+.locked-pad-footer-brand {
+  font-family: var(--font-sans);
+  font-size: var(--text-md);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--color-primary);
+}
+.locked-pad-footer-col {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+@media (max-width: 480px) {
+  .locked-pad-footer-col { align-items: flex-start; }
+}
+.locked-pad-footer-copy {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+.locked-pad-footer-links {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  gap: var(--space-2);
+}
+.locked-pad-footer-links a {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  text-decoration: none;
+}
+.locked-pad-footer-links a:hover { color: var(--color-primary); }
+
+/* ---- Shake animation ---- */
+@keyframes locked-shake {
+  0%, 100% { transform: translateX(0); }
+  25%       { transform: translateX(-5px); }
+  75%       { transform: translateX(5px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .locked-pin-box.has-error,
+  .locked-input.has-error { animation: none; }
+}
+
+/* ---- Legacy overlay classes (kept for backward compat) ---- */
 .locked-pad-overlay {
   position: relative;
   min-height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
-  /* honour notch/home-indicator insets so the card and theme toggle aren't
-     tucked under a notch in landscape */
-  padding: max(var(--space-4), env(safe-area-inset-top))
-    max(var(--space-4), env(safe-area-inset-right))
-    max(var(--space-4), env(safe-area-inset-bottom))
-    max(var(--space-4), env(safe-area-inset-left));
+  padding: var(--space-4);
   background: var(--color-bg);
   overflow: hidden;
 }
-@media (max-width: 480px) {
-  .locked-pad-overlay { padding: var(--space-3); }
-}
-
-/* animated squiggly lines, low-contrast, behind the card */
-.wavy-background {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-}
-.wavy-lines {
-  width: 100%;
-  height: 100%;
-  fill: none;
-}
-.wavy-lines path {
-  fill: var(--color-accent);
-  fill-opacity: 0.05;
-  stroke: var(--color-accent);
-  stroke-opacity: 0.22;
-  stroke-width: 0.6;
-  stroke-dasharray: 15, 5;
-  stroke-dashoffset: 0;
-  animation: wave 3s linear infinite;
-}
-.wave-2 { animation-delay: -1s; }
-.wave-3 { animation-delay: -2s; }
-
-@keyframes wave {
-  0% { stroke-dashoffset: 0; }
-  100% { stroke-dashoffset: -15; }
-}
-
-/* the raised PIN card */
-.content-container {
-  position: relative;
-  z-index: 1;
-  width: 100%;
-  max-width: 360px;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-4);
-  background: var(--color-surface-raised);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-pop);
-}
 .locked-pad-title {
-  font-family: var(--font-serif);
+  font-family: var(--font-sans);
   font-size: var(--text-xl);
+  font-weight: 700;
   margin: 0;
-  /* keep clear of the absolutely-positioned theme toggle in the top-right
-     corner of the card (its tap target is 44px on touch) */
-  padding-right: 48px;
   color: var(--color-text-primary);
 }
 .locked-pad-hint {
@@ -92,41 +336,18 @@
   font-size: var(--text-xs);
   color: var(--color-text-secondary);
 }
-.locked-input {
-  padding: 12px 14px;
+.content-container {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 360px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  background: var(--color-surface-raised);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
-  background: var(--color-surface);
-  color: var(--color-text-primary);
-  font-family: var(--font-mono);
-  font-size: var(--text-lg);
-  letter-spacing: 0.18em;
-  text-align: center;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-pop);
 }
-.locked-input:focus {
-  outline: none;
-  border-color: var(--color-accent);
-}
-.locked-input.has-error {
-  border-color: var(--color-danger);
-  animation: locked-shake var(--dur-state) var(--ease-in-out);
-}
-.locked-input:disabled {
-  opacity: 0.6;
-}
-.locked-input-error {
-  margin: 0;
-  font-size: var(--text-sm);
-  color: var(--color-danger);
-}
-
-@keyframes locked-shake {
-  0%, 100% { transform: translateX(0); }
-  25% { transform: translateX(-5px); }
-  75% { transform: translateX(5px); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .wavy-lines path { animation: none; }
-  .locked-input.has-error { animation: none; }
-}
+.wavy-background { display: none; }

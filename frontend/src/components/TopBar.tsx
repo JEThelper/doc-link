@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 
 import BrandWordmark from "./BrandWordmark";
 import ConnectionIndicator, { ConnectionState } from "./ConnectionIndicator";
@@ -7,6 +7,7 @@ import CopyButton from "./CopyButton";
 import PresenceStack, { PresencePeer } from "./PresenceStack";
 import ThemeToggle from "./ThemeToggle";
 import { useAuth } from "../auth";
+import { createPad } from "../api";
 
 interface Props {
   slug: string;
@@ -16,22 +17,15 @@ interface Props {
   onToggleTheme: () => void;
   canClaim?: boolean;
   onClaim?: () => void;
+  /** Opens the "Secure Document" PIN-setting modal (guest + auth). */
+  onSecure?: () => void;
 }
 
-const dismissKey = (slug: string) => `river-hint-dismissed:${slug}`;
-
+// Persist width preference so returning users keep their setting.
 type WidthPreset = "narrow" | "standard" | "wide";
 const WIDTH_KEY = "river-editor-width";
-
-function getWidthValue(preset: WidthPreset): number {
-  switch (preset) {
-    case "narrow":
-      return 600;
-    case "wide":
-      return 1024;
-    default:
-      return 740;
-  }
+function getWidthValue(p: WidthPreset) {
+  return p === "narrow" ? 600 : p === "wide" ? 1024 : 740;
 }
 
 export default function TopBar({
@@ -42,105 +36,160 @@ export default function TopBar({
   onToggleTheme,
   canClaim,
   onClaim,
+  onSecure,
 }: Props) {
-  const { user, logout } = useAuth();
-  const [hintDismissed, setHintDismissed] = useState(false);
-  const [widthPreset, setWidthPreset] = useState<WidthPreset>(() => {
+  const { user, authedFetch } = useAuth();
+  const navigate = useNavigate();
+  const shareRef = useRef<HTMLButtonElement>(null);
+  const fullUrl = `${window.location.origin}/${slug}`;
+
+  // Keep width preference in localStorage (selector removed from UI but state persists).
+  const [, setWidthPreset] = useState<WidthPreset>(() => {
     const stored = localStorage.getItem(WIDTH_KEY);
     return (stored as WidthPreset) || "standard";
   });
-  const fullUrl = `${window.location.origin}/${slug}`;
+  useEffect(() => {
+    const stored = (localStorage.getItem(WIDTH_KEY) as WidthPreset) || "standard";
+    setWidthPreset(stored);
+    document.documentElement.style.setProperty(
+      "--canvas-max-width",
+      `${getWidthValue(stored)}px`
+    );
+  }, []);
 
-  function dismissHint() {
-    localStorage.setItem(dismissKey(slug), "1");
-    setHintDismissed(true);
-  }
-
-  function changeWidth(preset: WidthPreset) {
-    if (["narrow", "standard", "wide"].includes(preset)) {
-      setWidthPreset(preset);
+  function handleShare() {
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(fullUrl).then(() => {
+        const btn = shareRef.current;
+        if (btn) {
+          const orig = btn.textContent;
+          btn.textContent = "Copied!";
+          setTimeout(() => { if (btn) btn.textContent = orig; }, 1500);
+        }
+      }).catch(() => {});
     }
   }
 
-  // Update hintDismissed when slug changes
-  useEffect(() => {
-    setHintDismissed(localStorage.getItem(dismissKey(slug)) === "1");
-  }, [slug]);
-  
-  // Apply width setting and save to localStorage when widthPreset changes
-  useEffect(() => {
-    if (["narrow", "standard", "wide"].includes(widthPreset)) {
-      document.documentElement.style.setProperty(
-        "--canvas-max-width",
-        `${getWidthValue(widthPreset)}px`
-      );
-      localStorage.setItem(WIDTH_KEY, widthPreset);
+  async function handleNewDoc() {
+    try {
+      const pad = await createPad(undefined, user ? authedFetch : fetch);
+      navigate(`/${pad.slug}`);
+    } catch (err) {
+      console.error("Could not create new document:", err);
     }
-  }, [widthPreset]);
+  }
 
+  /* ── Auth mode (screen_1) ──────────────────────────────────────────────── */
+  if (user) {
+    return (
+      <header className="topbar topbar--auth">
+        <div className="topbar-left">
+          <span className="topbar-secure-badge">
+            <span className="material-symbols-outlined topbar-secure-icon" aria-hidden="true">
+              verified_user
+            </span>
+            Secure
+          </span>
+        </div>
+
+        <div className="topbar-right">
+          <PresenceStack peers={peers} />
+          <ConnectionIndicator state={connection} />
+
+          {canClaim && (
+            <button type="button" className="topbar-ghost-btn" onClick={onClaim}>
+              Claim pad
+            </button>
+          )}
+
+          <button
+            ref={shareRef}
+            type="button"
+            className="topbar-ghost-btn"
+            onClick={handleShare}
+            title="Copy pad link"
+          >
+            Share
+          </button>
+
+          <button
+            type="button"
+            className="topbar-ghost-btn"
+            title="History (coming soon)"
+            disabled
+          >
+            History
+          </button>
+
+          <button
+            type="button"
+            className="topbar-new-doc-btn"
+            onClick={handleNewDoc}
+          >
+            New Document
+          </button>
+
+          <ThemeToggle theme={theme} onToggle={onToggleTheme} />
+        </div>
+      </header>
+    );
+  }
+
+  /* ── Guest mode (screen_3) ─────────────────────────────────────────────── */
   return (
-    <header className="topbar">
+    <header className="topbar topbar--guest">
       <div className="topbar-left">
-        <Link to="/" className="brand-mark" aria-label="River home">
-          <BrandWordmark />
+        <Link to="/" className="topbar-brand" aria-label="River home">
+          River
         </Link>
-        <CopyButton value={fullUrl} label={slug} ariaLabel={`Copy pad URL ${slug}`} />
+
+        <div className="topbar-url-bar" title={fullUrl}>
+          <svg
+            className="topbar-url-icon"
+            width="15"
+            height="15"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+          </svg>
+          <span className="topbar-url-text">
+            {fullUrl.replace(/^https?:\/\//, "")}
+          </span>
+        </div>
       </div>
 
       <div className="topbar-right">
-        <PresenceStack peers={peers} />
         <ConnectionIndicator state={connection} />
-        {user && canClaim && (
-          <button type="button" className="claim-btn" onClick={onClaim}>
-            Claim this pad
-          </button>
-        )}
-        {!user && !hintDismissed && (
-          <span className="signin-hint">
-            <Link to="/login">
-              {/* Full sentence on desktop; a compact "Sign in" on phones so the
-                  affordance survives without a dangling dismiss button. */}
-              <span className="signin-hint-full">Sign in to keep this pad forever</span>
-              <span className="signin-hint-short">Sign in</span>
-            </Link>
-            <button
-              type="button"
-              className="hint-dismiss"
-              onClick={dismissHint}
-              aria-label="Dismiss"
-            >
-              ✕
-            </button>
+
+        <button
+          type="button"
+          className="topbar-secure-btn"
+          onClick={onSecure}
+          title="Protect this document with a PIN"
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path fillRule="evenodd" d="M12 1a5 5 0 0 0-5 5v3H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2h-2V6a5 5 0 0 0-5-5zm3 8V6a3 3 0 1 0-6 0v3h6z" />
+          </svg>
+          Secure Document
+        </button>
+
+        <button
+          type="button"
+          className="topbar-more-btn"
+          aria-label="More options"
+        >
+          <span className="material-symbols-outlined" aria-hidden="true" style={{ fontSize: 20 }}>
+            more_vert
           </span>
-        )}
-        {user && (
-          <span className="topbar-user">
-            <Link to="/account/pads" className="text-link">
-              My Pads
-            </Link>
-            <span className="topbar-user-name" title={user.email}>
-              {user.username || user.email}
-            </span>
-            <button type="button" className="text-link" onClick={logout}>
-              Log out
-            </button>
-          </span>
-        )}
-        <div className="width-selector">
-          <label htmlFor="width-select" className="text-xs">
-            Width
-          </label>
-          <select
-            id="width-select"
-            value={widthPreset}
-            onChange={(e) => changeWidth(e.target.value as WidthPreset)}
-            className="width-select"
-          >
-            <option value="narrow">Narrow</option>
-            <option value="standard">Standard</option>
-            <option value="wide">Wide</option>
-          </select>
-        </div>
+        </button>
+
         <ThemeToggle theme={theme} onToggle={onToggleTheme} />
       </div>
     </header>
