@@ -9,7 +9,7 @@ depending on auth code that no longer exists after the migration.
 from __future__ import annotations
 
 from argon2 import PasswordHasher
-from argon2.exceptions import VerifyMismatchError
+from argon2.exceptions import Argon2Error, VerifyMismatchError
 
 _ph = PasswordHasher()
 
@@ -24,5 +24,5 @@ def verify_secret(secret_hash: str, secret: str) -> bool:
         return _ph.verify(secret_hash, secret)
     except VerifyMismatchError:
         return False
-    except Exception:
+    except Argon2Error:
         return False

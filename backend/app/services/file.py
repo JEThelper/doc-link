@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import uuid
 
 from fastapi import UploadFile
@@ -16,6 +17,8 @@ from app.services import scan as scan_service
 from app.services import storage
 
 settings = get_settings()
+
+logger = logging.getLogger("spacepad.file")
 
 # Stream uploads in chunks so an oversized body is rejected at the cutoff instead
 # of being fully buffered in memory first (AUDIT M1).
@@ -148,7 +151,8 @@ async def delete_file(db: AsyncSession, file: File) -> None:
     # Best-effort storage removal (object may already be gone if the scan failed).
     try:
         await storage.delete_object(file.storage_key)
-    except Exception:
-        pass
+    except storage.StorageError as exc:
+        # Best-effort: object may already be gone or storage hiccup.
+        logger.warning("delete_file: storage delete failed for %s: %s", file.storage_key, exc)
     await db.delete(file)
     await db.commit()

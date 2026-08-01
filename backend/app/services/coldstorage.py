@@ -16,9 +16,10 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import update
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.config import get_settings
 from app.db.session import SessionLocal
@@ -34,7 +35,7 @@ _task: asyncio.Task | None = None
 
 async def flag_cold_pads(now: datetime | None = None) -> int:
     """Flag pads whose ``last_opened_at`` is older than the window. Returns count."""
-    reference = now or datetime.now(timezone.utc)
+    reference = now or datetime.now(UTC)
     cutoff = reference - timedelta(days=settings.cold_storage_after_days)
     async with SessionLocal() as db:
         result = await db.execute(
@@ -68,7 +69,8 @@ async def _run_loop() -> None:
         try:
             await flag_cold_pads()
             await purge_expired_unlocks()
-        except Exception:  # never let the loop die on a transient DB error
+        except SQLAlchemyError:
+            # never let the loop die on a transient DB error
             logger.exception("cold-storage sweep failed")
         await asyncio.sleep(_ONE_DAY_SECONDS)
 

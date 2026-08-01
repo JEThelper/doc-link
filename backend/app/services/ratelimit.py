@@ -137,14 +137,21 @@ async def init() -> None:
         return
     try:
         import redis.asyncio as redis_asyncio
+    except ImportError:
+        # Redis not installed in this environment — run in fail-open mode.
+        _backend = None
+        return
 
+    # If redis is present, attempt to connect; unreachable Redis degrades to
+    # fail-open rather than blocking startup.
+    from redis.exceptions import RedisError
+    try:
         client = redis_asyncio.from_url(
             settings.redis_url, socket_connect_timeout=2, socket_timeout=2
         )
         await client.ping()
         _backend = RedisBackend(client)
-    except Exception:
-        # Redis missing/unreachable — degrade to fail-open rather than block.
+    except RedisError:
         _backend = None
 
 

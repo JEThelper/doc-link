@@ -1,3 +1,4 @@
+import logging
 import random
 import uuid
 
@@ -10,6 +11,8 @@ from app.models.pad import Pad, PadCollaborator, Visibility
 from app.services import redirect as redirect_service
 from app.services import slug as slug_service
 from app.services import storage
+
+logger = logging.getLogger("spacepad.pad")
 
 _MAX_GENERATION_ATTEMPTS = 25
 
@@ -268,9 +271,10 @@ async def delete_pad(db: AsyncSession, pad: Pad) -> None:
     for f in files:
         try:
             await storage.delete_object(f.storage_key)
-        except Exception:
-            # Object may already be gone (e.g. scan-failed uploads); not fatal.
-            pass
+        except storage.StorageError as exc:
+            # Object may already be gone (e.g. scan-failed uploads) or storage
+            # transient errors; treat as best-effort and log for visibility.
+            logger.warning("delete_pad: failed to delete storage object %s: %s", f.storage_key, exc)
         await db.delete(f)
     collabs = (
         await db.execute(

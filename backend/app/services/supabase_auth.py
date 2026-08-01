@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import logging
 import secrets
 import urllib.parse
 
@@ -26,6 +27,7 @@ import httpx
 from app.core.config import get_settings
 
 settings = get_settings()
+logger = logging.getLogger("spacepad.supabase_auth")
 
 
 def pkce_pair() -> tuple[str, str]:
@@ -53,7 +55,8 @@ class SupabaseAuthError(Exception):
 def _error_from(resp: httpx.Response) -> SupabaseAuthError:
     try:
         body = resp.json()
-    except Exception:
+    except ValueError as exc:
+        logger.warning("supabase_auth: failed to parse error response JSON: %s", exc)
         return SupabaseAuthError(resp.status_code, resp.text or "Auth request failed.")
     # gotrue uses a few error shapes across endpoints; normalise them.
     code = body.get("error_code") or body.get("code") or body.get("error")
@@ -129,9 +132,9 @@ class SupabaseAuthClient:
             await self._post(
                 "/logout", json={}, headers=self._headers(access_token=access_token)
             )
-        except SupabaseAuthError:
+        except SupabaseAuthError as exc:
             # Logout is best-effort — an already-invalid token still "logs out".
-            pass
+            logger.info("sign_out: non-fatal error during logout: %s", exc)
 
     async def recover(self, email: str, *, redirect_to: str | None = None) -> None:
         """Send a password-recovery email. gotrue intentionally returns 200 even
