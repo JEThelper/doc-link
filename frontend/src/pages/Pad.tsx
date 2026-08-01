@@ -57,7 +57,7 @@ function PadSidebar({ slug }: SidebarProps) {
 
   /* ── Auth sidebar (screen_1) ── */
   if (user) {
-    const initial = (user.display_name || user.email || "?")[0].toUpperCase();
+    const initial = (user.username || user.email || "?")[0].toUpperCase();
     return (
       <aside className="pad-sidebar" aria-label="Pad navigation">
         <div className="pad-sidebar-head">
@@ -99,7 +99,7 @@ function PadSidebar({ slug }: SidebarProps) {
             <div className="pad-sidebar-avatar" aria-hidden="true">{initial}</div>
             <div className="pad-sidebar-user-info">
               <p className="pad-sidebar-user-name" title={user.email}>
-                {user.display_name || user.email}
+                {user.username || user.email}
               </p>
               <p className="pad-sidebar-user-plan">
                 <button type="button" className="pad-sidebar-logout-link" onClick={logout}>

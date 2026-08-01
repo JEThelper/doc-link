@@ -1,9 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
-import BrandWordmark from "./BrandWordmark";
 import ConnectionIndicator, { ConnectionState } from "./ConnectionIndicator";
-import CopyButton from "./CopyButton";
 import PresenceStack, { PresencePeer } from "./PresenceStack";
 import ThemeToggle from "./ThemeToggle";
 import { useAuth } from "../auth";
