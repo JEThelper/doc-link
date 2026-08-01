@@ -137,6 +137,10 @@ export async function patchPad(
     pin_protected?: boolean;
     pin?: string;
     pin_format?: PinFormat;
+    /** Client-side dashboard field: pin pad to top of list. */
+    pinned?: boolean;
+    /** Client-side dashboard field: card accent color (hex string). */
+    color?: string | null;
   }
 ): Promise<Pad> {
   const resp = await fetcher(`/api/pads/${encodeURIComponent(slug)}`, {

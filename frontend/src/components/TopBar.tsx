@@ -39,9 +39,14 @@ export default function TopBar({
   const { user, authedFetch } = useAuth();
   const navigate = useNavigate();
   const shareRef = useRef<HTMLButtonElement>(null);
-  const fullUrl = `${window.location.origin}/${slug}`;
+  const moreRef  = useRef<HTMLButtonElement>(null);
+  const menuRef  = useRef<HTMLDivElement>(null);
+  const fullUrl  = `${window.location.origin}/${slug}`;
 
-  // Keep width preference in localStorage (selector removed from UI but state persists).
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [copyLabel, setCopyLabel] = useState("Copy link");
+
+  // Keep width preference in localStorage.
   const [, setWidthPreset] = useState<WidthPreset>(() => {
     const stored = localStorage.getItem(WIDTH_KEY);
     return (stored as WidthPreset) || "standard";
@@ -55,6 +60,31 @@ export default function TopBar({
     );
   }, []);
 
+  // Close the More menu when clicking outside it.
+  useEffect(() => {
+    if (!moreOpen) return;
+    function onPointerDown(e: PointerEvent) {
+      if (
+        menuRef.current && !menuRef.current.contains(e.target as Node) &&
+        moreRef.current && !moreRef.current.contains(e.target as Node)
+      ) {
+        setMoreOpen(false);
+      }
+    }
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [moreOpen]);
+
+  // Close More menu on Escape.
+  useEffect(() => {
+    if (!moreOpen) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") { setMoreOpen(false); moreRef.current?.focus(); }
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [moreOpen]);
+
   function handleShare() {
     if (navigator.clipboard?.writeText) {
       navigator.clipboard.writeText(fullUrl).then(() => {
@@ -66,6 +96,19 @@ export default function TopBar({
         }
       }).catch(() => {});
     }
+  }
+
+  function handleMoreCopyLink() {
+    navigator.clipboard?.writeText(fullUrl).then(() => {
+      setCopyLabel("Copied!");
+      setTimeout(() => setCopyLabel("Copy link"), 1500);
+    }).catch(() => {});
+    setMoreOpen(false);
+  }
+
+  function handleMoreHelp() {
+    setMoreOpen(false);
+    navigate("/help");
   }
 
   async function handleNewDoc() {
@@ -163,7 +206,7 @@ export default function TopBar({
         </div>
       </div>
 
-      <div className="topbar-right">
+      <div className="topbar-right" style={{ position: "relative" }}>
         <ConnectionIndicator state={connection} />
 
         <button
@@ -178,15 +221,93 @@ export default function TopBar({
           Secure Document
         </button>
 
+        {/* More options button — opens a small dropdown */}
         <button
+          ref={moreRef}
           type="button"
           className="topbar-more-btn"
           aria-label="More options"
+          aria-haspopup="menu"
+          aria-expanded={moreOpen}
+          onClick={() => setMoreOpen((o) => !o)}
         >
           <span className="material-symbols-outlined" aria-hidden="true" style={{ fontSize: 20 }}>
             more_vert
           </span>
         </button>
+
+        {/* Dropdown menu */}
+        {moreOpen && (
+          <div
+            ref={menuRef}
+            role="menu"
+            aria-label="More options"
+            style={{
+              position: "absolute",
+              top: "calc(100% + 6px)",
+              right: 0,
+              background: "var(--color-surface, #fff)",
+              border: "1px solid var(--color-border-subtle, #bfc7d1)",
+              borderRadius: "8px",
+              boxShadow: "0px 4px 20px rgba(0,119,182,0.10)",
+              minWidth: "180px",
+              zIndex: 200,
+              overflow: "hidden",
+            }}
+          >
+            <button
+              role="menuitem"
+              type="button"
+              onClick={handleMoreCopyLink}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "10px",
+                width: "100%",
+                padding: "10px 16px",
+                background: "none",
+                border: "none",
+                fontSize: 14,
+                textAlign: "left",
+                cursor: "pointer",
+                color: "var(--color-text-primary, #191c1d)",
+              }}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+              </svg>
+              {copyLabel}
+            </button>
+
+            <button
+              role="menuitem"
+              type="button"
+              onClick={handleMoreHelp}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "10px",
+                width: "100%",
+                padding: "10px 16px",
+                background: "none",
+                border: "none",
+                borderTop: "1px solid var(--color-border-subtle, #bfc7d1)",
+                fontSize: 14,
+                textAlign: "left",
+                cursor: "pointer",
+                color: "var(--color-text-primary, #191c1d)",
+              }}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="10" />
+                <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+                <line x1="12" y1="17" x2="12.01" y2="17" />
+              </svg>
+              Help
+            </button>
+          </div>
+        )}
 
         <ThemeToggle theme={theme} onToggle={onToggleTheme} />
       </div>

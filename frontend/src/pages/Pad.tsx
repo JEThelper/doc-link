@@ -7,6 +7,7 @@ import CollabEditor from "../components/CollabEditor";
 import FileTray from "../components/FileTray";
 import { ConnectionState } from "../components/ConnectionIndicator";
 import { PresencePeer } from "../components/PresenceStack";
+import { EditorSkeleton } from "../components/Skeletons";
 import {
   Pad as PadModel,
   PinFormat,
@@ -86,12 +87,12 @@ function PadSidebar({ slug }: SidebarProps) {
             </span>
             Settings
           </Link>
-          <a href="#" className="pad-sidebar-nav-item">
+          <Link to="/help" className="pad-sidebar-nav-item">
             <span className="material-symbols-outlined pad-sidebar-nav-icon" aria-hidden="true">
               help
             </span>
             Help
-          </a>
+          </Link>
         </nav>
 
         <div className="pad-sidebar-footer">
@@ -333,7 +334,7 @@ export default function Pad() {
   }
 
   /* ── State screens ── */
-  if (status === "loading") return <div className="pad-state" />;
+  if (status === "loading") return <EditorSkeleton />;
 
   if (status === "invalid")
     return (
@@ -628,7 +629,7 @@ function LockedPad({ slug, pinFormat, onUnlocked }: LockedPadProps) {
         <div className="locked-pad-footer-inner">
           <span className="locked-pad-footer-brand">River</span>
           <div className="locked-pad-footer-col">
-            <p className="locked-pad-footer-copy">© 2024 River. Radically accessible writing.</p>
+            <p className="locked-pad-footer-copy">© {new Date().getFullYear()} River. Radically accessible writing.</p>
             <ul className="locked-pad-footer-links">
               <li><a href="#">About</a></li>
               <li><Link to="/privacy">Privacy</Link></li>

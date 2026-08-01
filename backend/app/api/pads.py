@@ -286,7 +286,7 @@ async def patch_pad(
         )
 
     # Rename is its own transactional, namespaced, collision-checked operation.
-    if "name" in fields and fields["name"] is not None:
+    if "name" in fields:
         try:
             pad = await pad_service.rename_pad(db, pad, fields["name"])
         except slug_service.SlugError as exc:

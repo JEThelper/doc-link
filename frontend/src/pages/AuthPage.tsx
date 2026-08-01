@@ -37,7 +37,10 @@ export default function AuthPage({ mode }: Props) {
   useEffect(() => {
     if (user) {
       const next = new URLSearchParams(window.location.search).get("next") || "/account/pads";
-      navigate(next.startsWith("/") ? next : "/account/pads", { replace: true });
+      // Only allow relative paths that start with a single slash — blocks //evil.com
+      // and any protocol-relative or absolute URL redirects.
+      const safe = /^\/[^/]/.test(next) ? next : "/account/pads";
+      navigate(safe, { replace: true });
     }
   }, [navigate, user]);
 
@@ -56,7 +59,8 @@ export default function AuthPage({ mode }: Props) {
         await login(email, password);
       }
       const next = new URLSearchParams(window.location.search).get("next") || "/account/pads";
-      navigate(next.startsWith("/") ? next : "/account/pads", { replace: true });
+      const safe = /^\/[^/]/.test(next) ? next : "/account/pads";
+      navigate(safe, { replace: true });
     } catch (err) {
       setError((err as Error).message);
     } finally {

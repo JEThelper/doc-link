@@ -4,6 +4,7 @@ import { createBrowserRouter, RouterProvider } from "react-router-dom";
 
 import "./index.css";
 import { AuthProvider } from "./auth";
+import ErrorBoundary from "./components/ErrorBoundary";
 import AccountPads from "./pages/AccountPads";
 import AuthPage from "./pages/AuthPage";
 import ForgotPassword from "./pages/ForgotPassword";
@@ -36,8 +37,10 @@ const router = createBrowserRouter([
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <AuthProvider>
-      <RouterProvider router={router} />
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <RouterProvider router={router} />
+      </AuthProvider>
+    </ErrorBoundary>
   </React.StrictMode>
 );
