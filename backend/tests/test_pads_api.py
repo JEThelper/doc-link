@@ -63,3 +63,22 @@ async def test_raw_endpoint(client):
     assert resp.status_code == 200
     assert resp.text == "raw text"
     assert resp.headers["content-type"].startswith("text/plain")
+
+
+async def test_create_pad_custom_slug_conflicts_with_anonymous_name(client):
+    await client.post("/api/pads", json={"slug": "anon-existing"})
+    await client.patch("/api/pads/anon-existing", json={"name": "shadowed"})
+
+    signup = await client.post(
+        "/api/auth/signup",
+        json={"email": "owner@example.com", "password": "password123", "username": "owner"},
+    )
+    token = signup.json()["access_token"]
+
+    resp = await client.post(
+        "/api/pads",
+        json={"slug": "shadowed"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 409
+    assert "taken" in resp.json()["detail"].lower()

@@ -7,6 +7,7 @@ import CollabEditor from "../components/CollabEditor";
 import FileTray from "../components/FileTray";
 import { ConnectionState } from "../components/ConnectionIndicator";
 import { PresencePeer } from "../components/PresenceStack";
+import { EditorSkeleton } from "../components/Skeletons";
 import {
   Pad as PadModel,
   PinFormat,
@@ -57,7 +58,7 @@ function PadSidebar({ slug }: SidebarProps) {
 
   /* ── Auth sidebar (screen_1) ── */
   if (user) {
-    const initial = (user.display_name || user.email || "?")[0].toUpperCase();
+    const initial = (user.username || user.email || "?")[0].toUpperCase();
     return (
       <aside className="pad-sidebar" aria-label="Pad navigation">
         <div className="pad-sidebar-head">
@@ -86,12 +87,12 @@ function PadSidebar({ slug }: SidebarProps) {
             </span>
             Settings
           </Link>
-          <a href="#" className="pad-sidebar-nav-item">
+          <Link to="/help" className="pad-sidebar-nav-item">
             <span className="material-symbols-outlined pad-sidebar-nav-icon" aria-hidden="true">
               help
             </span>
             Help
-          </a>
+          </Link>
         </nav>
 
         <div className="pad-sidebar-footer">
@@ -99,7 +100,7 @@ function PadSidebar({ slug }: SidebarProps) {
             <div className="pad-sidebar-avatar" aria-hidden="true">{initial}</div>
             <div className="pad-sidebar-user-info">
               <p className="pad-sidebar-user-name" title={user.email}>
-                {user.display_name || user.email}
+                {user.username || user.email}
               </p>
               <p className="pad-sidebar-user-plan">
                 <button type="button" className="pad-sidebar-logout-link" onClick={logout}>
@@ -333,7 +334,7 @@ export default function Pad() {
   }
 
   /* ── State screens ── */
-  if (status === "loading") return <div className="pad-state" />;
+  if (status === "loading") return <EditorSkeleton />;
 
   if (status === "invalid")
     return (
@@ -628,7 +629,7 @@ function LockedPad({ slug, pinFormat, onUnlocked }: LockedPadProps) {
         <div className="locked-pad-footer-inner">
           <span className="locked-pad-footer-brand">River</span>
           <div className="locked-pad-footer-col">
-            <p className="locked-pad-footer-copy">© 2024 River. Radically accessible writing.</p>
+            <p className="locked-pad-footer-copy">© {new Date().getFullYear()} River. Radically accessible writing.</p>
             <ul className="locked-pad-footer-links">
               <li><a href="#">About</a></li>
               <li><Link to="/privacy">Privacy</Link></li>

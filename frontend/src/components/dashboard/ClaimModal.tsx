@@ -108,9 +108,10 @@ export default function ClaimModal({ onClose, onSubmit }: ClaimModalProps) {
                 <div style={{ fontSize: '12px', color: 'var(--color-text-muted)', marginBottom: '8px' }}>
                   Optional. Enter PIN if the pad is locked.
                 </div>
-                <input 
-                  type="text" 
-                  className="composer-input" 
+                <input
+                  type="password"
+                  autoComplete="off"
+                  className="composer-input"
                   style={{ border: '1px solid var(--color-border-subtle)', borderRadius: '4px' }}
                   value={pin}
                   onChange={(e) => setPin(e.target.value)}

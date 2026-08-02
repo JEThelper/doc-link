@@ -10,11 +10,13 @@ import {
   listMyPads,
   patchPad,
   deletePad,
+  unlockPad,
 } from "../api";
 import Composer from "../components/dashboard/Composer";
 import PadCard from "../components/dashboard/PadCard";
 import InlinePadEditor from "../components/dashboard/InlinePadEditor";
 import ClaimModal from "../components/dashboard/ClaimModal";
+import { PadListSkeleton } from "../components/Skeletons";
 
 function parseSlug(input: string): string {
   const trimmed = input.trim();
@@ -25,6 +27,124 @@ function parseSlug(input: string): string {
   } catch {}
   const parts = path.split("/").filter(Boolean);
   return parts.length ? parts[parts.length - 1] : "";
+}
+
+/* ── Dashboard lock prompt — real PIN verification ───────────────────────── */
+interface LockPromptProps {
+  pad: PadListItem;
+  authedFetch: (input: string, init?: RequestInit) => Promise<Response>;
+  onUnlocked: (pad: import("../api").Pad) => void;
+  onCancel: () => void;
+}
+
+function LockPrompt({ pad, authedFetch, onUnlocked, onCancel }: LockPromptProps) {
+  const [pin, setPin] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [lockedOut, setLockedOut] = useState(false);
+
+  async function handleUnlock() {
+    const trimmed = pin.trim();
+    if (!trimmed) { setError("Please enter your PIN."); return; }
+    setSubmitting(true);
+    setError(null);
+    try {
+      const result = await unlockPad(pad.slug, trimmed, authedFetch);
+      if (result.kind === "ok") {
+        onUnlocked(result.pad);
+        return;
+      }
+      if (result.kind === "rate_limited") {
+        setLockedOut(true);
+        const mins = result.retryAfter ? Math.ceil(result.retryAfter / 60) : 0;
+        setError(
+          mins
+            ? `Too many attempts. Try again in about ${mins} minute${mins === 1 ? "" : "s"}.`
+            : result.message
+        );
+      } else {
+        setError(result.message || "Incorrect PIN.");
+      }
+    } catch (e) {
+      setError((e as Error).message || "Could not verify PIN.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div
+      className="lock-prompt-backdrop"
+      style={{
+        position: "fixed",
+        top: 0, left: 0, right: 0, bottom: 0,
+        background: "rgba(0,0,0,0.6)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 1100,
+      }}
+    >
+      <div
+        className="lock-prompt"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="lock-prompt-title"
+        style={{
+          background: "var(--color-surface)",
+          padding: "24px",
+          borderRadius: "16px",
+          width: "320px",
+          boxShadow: "0px 4px 20px rgba(0, 119, 182, 0.08)",
+        }}
+      >
+        <h2 id="lock-prompt-title" style={{ marginTop: 0, fontSize: 18, fontWeight: 600 }}>
+          Enter PIN
+        </h2>
+        <p style={{ fontSize: 14, color: "var(--color-text-secondary)", marginBottom: 16 }}>
+          <strong>{pad.name || pad.slug}</strong> is protected. Enter the PIN to open it.
+        </p>
+        <input
+          type="password"
+          autoFocus
+          placeholder="PIN"
+          value={pin}
+          disabled={submitting || lockedOut}
+          onChange={(e) => setPin(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") handleUnlock(); }}
+          aria-label="PIN"
+          style={{
+            width: "100%",
+            padding: "8px 12px",
+            marginBottom: 8,
+            borderRadius: 8,
+            border: "1px solid var(--color-border-subtle)",
+            fontSize: 16,
+            fontFamily: "JetBrains Mono, monospace",
+            letterSpacing: "0.1em",
+            boxSizing: "border-box",
+          }}
+        />
+        {error && (
+          <p role="alert" style={{ color: "#ba1a1a", fontSize: 13, marginBottom: 12 }}>
+            {error}
+          </p>
+        )}
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 8 }}>
+          <button className="btn btn-secondary" onClick={onCancel} disabled={submitting}>
+            Cancel
+          </button>
+          <button
+            className="btn btn-primary"
+            onClick={handleUnlock}
+            disabled={submitting || lockedOut || !pin.trim()}
+          >
+            {submitting ? "Verifying…" : "Unlock"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function AccountPads() {
@@ -164,7 +284,7 @@ export default function AccountPads() {
     const newPinned = !pad.pinned;
     applyLocal(pad.slug, { pinned: newPinned });
     try {
-      await patchPad(authedFetch, pad.slug, { pinned: newPinned } as any);
+      await patchPad(authedFetch, pad.slug, { pinned: newPinned });
     } catch (e) {
       load();
     }
@@ -193,27 +313,22 @@ export default function AccountPads() {
   const handleChangeColor = async (pad: PadListItem, color: string) => {
     applyLocal(pad.slug, { color });
     try {
-      await patchPad(authedFetch, pad.slug, { color } as any);
+      await patchPad(authedFetch, pad.slug, { color });
     } catch (e) {
       load();
     }
   };
 
   const handleDelete = async (pad: PadListItem) => {
-    if (!confirm("Delete this pad forever?")) return;
-    
+    if (!confirm("Delete this pad forever? This cannot be undone.")) return;
+
     const prevPads = pads;
     setPads((prev) => prev.filter((p) => p.slug !== pad.slug));
-    
-    showToast("Pad deleted", () => {
-      setPads(prevPads); // Revert UI
-      setToast(null);
-      // Depending on API, you might not be able to truly undo a hard delete,
-      // but for the sake of the requirement we show the toast.
-    });
 
     try {
       await deletePad(authedFetch, pad.slug);
+      // Hard-delete is permanent — no undo. Confirm deletion with a plain toast.
+      showToast("Pad deleted");
     } catch (e) {
       setError((e as Error).message);
       setPads(prevPads);
@@ -337,7 +452,7 @@ export default function AccountPads() {
 
       {/* Grid */}
       {loading ? (
-        <div style={{ padding: 16 }}>Loading...</div>
+        <PadListSkeleton count={8} />
       ) : pads.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '40px 16px', color: 'var(--color-text-secondary)' }}>
           {debouncedQuery ? `No pads match “${debouncedQuery}”.` : "No pads here."}
@@ -348,6 +463,25 @@ export default function AccountPads() {
             <div style={{ padding: '0 16px' }}>
               <h2 style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>Recent</h2>
               <div className="keep-grid" role="list">
+                {groupedPads.recent.map((pad) => (
+                  <PadCard
+                    key={pad.id}
+                    pad={pad}
+                    onExpand={handleExpand}
+                    onArchive={handleArchive}
+                    onTogglePin={handleTogglePin}
+                    onChangeColor={handleChangeColor}
+                    onShare={() => {}}
+                    onMore={handleDelete}
+                    selected={selectedIds.has(pad.id)}
+                    onSelect={(checked) => {
+                      const newSet = new Set(selectedIds);
+                      if (checked) newSet.add(pad.id);
+                      else newSet.delete(pad.id);
+                      setSelectedIds(newSet);
+                    }}
+                  />
+                ))}
               </div>
             </div>
           )}
@@ -395,8 +529,8 @@ export default function AccountPads() {
         <ClaimModal onClose={() => setShowClaimModal(false)} onSubmit={handleClaim} />
       )}
 
-      {/* Inline editor overlay */}
-      {editingPad && (
+      {/* Inline editor overlay — only shown for unlocked pads */}
+      {editingPad && !editingPad.locked && (
         <div className="inline-editor-backdrop" style={{
           position: 'fixed',
           top: 0,
@@ -416,33 +550,20 @@ export default function AccountPads() {
           />
         </div>
       )}
-      {/* Lock PIN Prompt */}
+      {/* Lock PIN Prompt — shown when editingPad is locked */}
       {editingPad?.locked && (
-        <div className="lock-prompt-backdrop" style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0,0,0,0.6)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1100,
-        }}>
-          <div className="lock-prompt" style={{background:'var(--color-surface)',padding:'24px',borderRadius:'8px',width:'320px'}}>
-            <h2 style={{marginTop:0}}>Enter PIN</h2>
-            <input type="password" placeholder="PIN" id="pin-input" style={{width:'100%',padding:'8px',marginBottom:'12px'}} />
-            <div style={{display:'flex',justifyContent:'flex-end',gap:'8px'}}>
-              <button className="btn btn-secondary" onClick={() => setEditingPad(null)}>Cancel</button>
-              <button className="btn btn-primary" onClick={() => {
-                /* const pin = (document.getElementById('pin-input') as HTMLInputElement).value; */
-                // TODO: verify PIN via API; for now just close prompt
-                setEditingPad(prev => ({...prev!, locked: false} as any));
-              }}>Unlock</button>
-            </div>
-          </div>
-        </div>
+        <LockPrompt
+          pad={editingPad}
+          authedFetch={authedFetch}
+          onUnlocked={(unlockedPad) => {
+            // Mark the pad as unlocked in local state and proceed to inline editor
+            setPads((prev) =>
+              prev.map((p) => (p.slug === unlockedPad.slug ? { ...p, locked: false } : p))
+            );
+            setEditingPad({ ...editingPad, locked: false });
+          }}
+          onCancel={() => setEditingPad(null)}
+        />
       )}
 
       {/* Toast */}

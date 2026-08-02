@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.api import auth, files, pads, ws
 from app.api.ws import server as crdt_server
@@ -65,7 +66,7 @@ async def _db_ready() -> bool:
         async with engine.connect() as conn:
             await conn.execute(text("SELECT 1"))
         return True
-    except Exception as exc:
+    except SQLAlchemyError as exc:
         logger.error("readiness: database check failed: %s", exc)
         return False
 

@@ -1,3 +1,4 @@
+import logging
 import random
 import uuid
 
@@ -10,6 +11,8 @@ from app.models.pad import Pad, PadCollaborator, Visibility
 from app.services import redirect as redirect_service
 from app.services import slug as slug_service
 from app.services import storage
+
+logger = logging.getLogger("spacepad.pad")
 
 _MAX_GENERATION_ATTEMPTS = 25
 
@@ -85,15 +88,36 @@ async def touch_last_opened(db: AsyncSession, pad: Pad) -> None:
     await db.refresh(pad)
 
 
-async def _generate_unique_slug(db: AsyncSession, rng: random.Random | None = None) -> str:
+async def _generate_unique_slug(
+    db: AsyncSession,
+    rng: random.Random | None = None,
+) -> str:
     for _ in range(_MAX_GENERATION_ATTEMPTS):
         candidate = slug_service.generate_slug(rng)
-        existing = await get_pad_by_slug(db, candidate)
-        if existing is None:
-            return candidate
-    # Extremely unlikely; widen entropy with a longer numeric suffix.
+        if await get_pad_by_slug(db, candidate) is not None:
+            continue
+        if not await redirect_service.is_name_available(
+            db,
+            candidate,
+            namespace=redirect_service.ANONYMOUS,
+            namespace_owner=None,
+        ):
+            continue
+        return candidate
     base = slug_service.generate_slug(rng)
-    return f"{base}-{random.randint(100, 9999)}"
+    for _ in range(100):
+        candidate = f"{base}-{random.randint(100, 9999)}"
+        if await get_pad_by_slug(db, candidate) is not None:
+            continue
+        if not await redirect_service.is_name_available(
+            db,
+            candidate,
+            namespace=redirect_service.ANONYMOUS,
+            namespace_owner=None,
+        ):
+            continue
+        return candidate
+    raise SlugTakenError("Unable to generate a unique slug.")
 
 
 async def create_pad(
@@ -116,6 +140,13 @@ async def create_pad(
     else:
         final_slug = slug_service.validate_custom_slug(slug)
         if await get_pad_by_slug(db, final_slug) is not None:
+            raise SlugTakenError(final_slug)
+        if not await redirect_service.is_name_available(
+            db,
+            final_slug,
+            namespace=redirect_service.ANONYMOUS,
+            namespace_owner=None,
+        ):
             raise SlugTakenError(final_slug)
 
     pad = Pad(
@@ -172,7 +203,7 @@ async def update_pad_metadata(
     return pad
 
 
-async def rename_pad(db: AsyncSession, pad: Pad, new_name: str) -> Pad:
+async def rename_pad(db: AsyncSession, pad: Pad, new_name: str | None) -> Pad:
     """Rename a pad's canonical name within its namespace (anonymous or claimed).
 
     The custom name is the pad's address segment, so it must satisfy the same
@@ -184,23 +215,32 @@ async def rename_pad(db: AsyncSession, pad: Pad, new_name: str) -> Pad:
 
     Raises ``slug_service.SlugError`` (bad format) or ``NameTakenError`` (taken).
     """
-    normalized = slug_service.validate_custom_slug(new_name)
     namespace, ns_owner = redirect_service.namespace_of(pad)
-
     current_canonical = pad.name or pad.slug
-    if normalized == current_canonical:
+
+    if new_name is None:
+        if pad.name is None:
+            return pad  # no-op
+        normalized = None
+        new_canonical = pad.slug
+    else:
+        normalized = slug_service.validate_custom_slug(new_name)
+        new_canonical = normalized
+
+    if new_canonical == current_canonical:
         return pad  # no-op rename
 
-    if not await redirect_service.is_name_available(
-        db,
-        normalized,
-        namespace=namespace,
-        namespace_owner=ns_owner,
-        exclude_pad_id=pad.id,
-    ):
-        raise NameTakenError(normalized)
+    if normalized is not None:
+        if not await redirect_service.is_name_available(
+            db,
+            normalized,
+            namespace=namespace,
+            namespace_owner=ns_owner,
+            exclude_pad_id=pad.id,
+        ):
+            raise NameTakenError(normalized)
 
-    old_name = pad.name  # the previous custom name (None if never renamed)
+    old_name = pad.name
     pad.name = normalized
     await redirect_service.record_name_change(
         db,
@@ -212,9 +252,8 @@ async def rename_pad(db: AsyncSession, pad: Pad, new_name: str) -> Pad:
     try:
         await db.commit()
     except IntegrityError:
-        # Lost a concurrent-rename race on the partial unique index.
         await db.rollback()
-        raise NameTakenError(normalized)
+        raise NameTakenError(normalized or "")
     await db.refresh(pad)
     return pad
 
@@ -232,9 +271,10 @@ async def delete_pad(db: AsyncSession, pad: Pad) -> None:
     for f in files:
         try:
             await storage.delete_object(f.storage_key)
-        except Exception:
-            # Object may already be gone (e.g. scan-failed uploads); not fatal.
-            pass
+        except storage.StorageError as exc:
+            # Object may already be gone (e.g. scan-failed uploads) or storage
+            # transient errors; treat as best-effort and log for visibility.
+            logger.warning("delete_pad: failed to delete storage object %s: %s", f.storage_key, exc)
         await db.delete(f)
     collabs = (
         await db.execute(

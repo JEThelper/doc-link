@@ -91,6 +91,25 @@ async def test_patch_rename_owner_only(client):
     assert ok.json()["name"] == "my-project"
 
 
+async def test_patch_clear_custom_name(client):
+    token, _ = await _signup(client, "cleanup@example.com")
+    await client.post("/api/pads", json={"slug": "clear-name"}, headers=_auth(token))
+    await client.patch(
+        "/api/pads/clear-name",
+        json={"name": "temporary-name"},
+        headers=_auth(token),
+    )
+
+    resp = await client.patch(
+        "/api/pads/clear-name",
+        json={"name": None},
+        headers=_auth(token),
+    )
+    assert resp.status_code == 200
+    assert resp.json()["name"] is None
+    assert resp.json()["canonical_url"] == "/cleanup/clear-name"
+
+
 async def test_patch_private_requires_verified_email(client, session_factory):
     token, user_id = await _signup(client, "owner@example.com")
     await client.post("/api/pads", json={"slug": "wanna-be-private"}, headers=_auth(token))

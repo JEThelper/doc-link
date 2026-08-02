@@ -69,7 +69,7 @@ async def ensure_bucket() -> None:
                     "storage: could not ensure bucket %s: %s %s",
                     bucket, create.status_code, create.text,
                 )
-    except Exception as exc:  # network/transient — don't kill startup
+    except httpx.RequestError as exc:  # network/transient — don't kill startup
         logger.warning("storage: bucket check skipped (%s)", exc)
 
 
@@ -104,7 +104,7 @@ def _is_not_found(resp: httpx.Response) -> bool:
         return True
     try:
         body = resp.json()
-    except Exception:
+    except ValueError:
         return False
     return str(body.get("statusCode")) == "404" or body.get("error") == "not_found"
 

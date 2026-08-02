@@ -59,7 +59,7 @@ def verify_access_token(token: str) -> tuple[dict, bool]:
                 algorithms=["ES256", "RS256"],
                 audience=settings.supabase_jwt_aud,
             )
-        except Exception as exc:  # network, signature, expiry, audience…
+        except jwt.PyJWTError as exc:  # network, signature, expiry, audience…
             raise AuthError(str(exc))
         return claims, True
 
